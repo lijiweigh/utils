@@ -1,6 +1,7 @@
 #
 
 ## 封装 
-jsonp           - [ ] 
-axios           - [ ] 
-localstorage    - [ ] 
+
+- [ ] jsonp
+- [ ] axios
+- [ ] localstorage
