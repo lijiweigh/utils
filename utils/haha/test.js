@@ -1,7 +1,7 @@
 let fs = require("fs")
 
 Function.prototype.myfn = function (context) {
-    // console.log(this)
+    console.log(this.name)
     context.fn = this
     context.fn()
 }

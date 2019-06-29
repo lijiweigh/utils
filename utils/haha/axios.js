@@ -97,7 +97,7 @@ instance.interceptors.response.use(res => {
 
 // 路由拦截
 // 不是所有版块都需要鉴权的
-// 所以需要鉴权,我都会在路由meta添加添加一个字段requireLogin,设置为true的时候
+// 所以需要鉴权的时候,我都会在路由meta添加一个字段requireLogin,设置为true的时候
 // 这货就必须走鉴权,像登录页这些不要,是可以直接访问的!!!
 
 // router.beforeEach ((to, from, next) => {
