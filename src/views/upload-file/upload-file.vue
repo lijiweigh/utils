@@ -24,6 +24,9 @@ export default {
                 img.src = URL.createObjectURL(files[i])
                 preview.appendChild(img)
             }
+            // file 的change事件有个坑，如果之前上传过一次该文件，再次上传时不会触发change事件，除非手动将value设为空，
+            // 这样才可以重复上传同一个文件
+            this.$refs.file.value = ""
 
         },
         fileDrop (e) {
