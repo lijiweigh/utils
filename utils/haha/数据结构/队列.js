@@ -42,3 +42,5 @@
          return this.items.length
      }
  }
+
+ exports.Queue = Queue

@@ -60,6 +60,7 @@ class HashMap {
          let ll = this.table[pos]
          if (!ll) {
             ll = new LinkedList()
+            this.table[pos] = ll
          }
 
          ll.append (new toValue(key, value))
@@ -69,9 +70,13 @@ class HashMap {
         let pos = hashFunction (key)
          let ll = this.table[pos]
          if (ll) {
-            for (let cur = ll.getHead (); cur.next; cur = cur.next) {
+            for (let cur = ll.getHead (); ; ) {
                 if (cur.element.key === key) {
                     return cur.element.value
+                }
+                cur = cur.next ()
+                if (cur.next === null) {
+                    break;
                 }
             }
          }
@@ -84,13 +89,17 @@ class HashMap {
         let pos = hashFunction (key)
          let ll = this.table[pos]
          if (ll) {
-            for (let cur = ll.getHead(); cur.next; cur = cur.next) {
+            for (let cur = ll.getHead(); ; ) {
                 if (cur.element.key === key) {
                     ll.remove (cur.element)
                     if (ll.isEmpty ()) {
                         this.table[pos] = undefined
                     }
                     return true
+                }
+                cur = cur.next ()
+                if (cur.next === null) {
+                    break;
                 }
             }   
          }
@@ -116,13 +125,18 @@ class HashMap {
          let pos = djb2HashCode (value) 
          let s = this.set[pos]
          if (s) {
-            for (let cur = s.getHead(); cur.next; cur = cur.next) {
+            for (let cur = s.getHead(); ; ) {
                 if (cur.element === value) {
                     s.remove (cur.element)
                     if (s.isEmpty ()) {
                         this.set[pos] = undefined
                     }
                     return true
+                }
+
+                cur = cur.next ()
+                if (cur.next === null) {
+                    break;
                 }
             }
          }
@@ -148,9 +162,15 @@ function djb2HashCode (key) {
     return hash % 1013; //{4}
 };
 
-let h = new HashMap ()
-h.put ("a", {a: 2})
-console.log(h.get("a"))
-h.remove ("a")
-console.log(h.get ("a"))
+exports.HashMap = HashMap2
 
+// let h = new HashMap ()
+// h.put ("a", {a: 2})
+// console.log(h.get("a"))
+// h.remove ("a")
+// console.log(h.get ("a"))
+
+// let h  = new HashMap2 ()
+// h.put ("a", "abc")
+// console.log(h)
+// console.log(h.get ("a"))

@@ -3,6 +3,8 @@
  * 然后递归调用，在两边都实行快速排序。
  */
 
+
+//  缺陷：不是原地排序
  function sort(arr) {
 
     if (arr.length <= 1) {
@@ -27,8 +29,54 @@
 
  }
 
- let s = [3,1,6,8,5,2,6,7]
+//  原地排序
+ function quickSort (arr) {
+    quick (arr, 0, arr.length - 1)
+ }
 
- s = sort(s)
+ function quick (arr, left, right) {
+     if (arr.length > 1) {
+        let index = patition (arr, left, right)
+
+        if (left < index - 1) {
+            quick (arr, left, index - 1)
+        }
+
+        if (right > index) {
+            quick (arr, index, right)
+        }
+     }
+
+ }
+
+ function patition (arr, left, right) {
+     let pivot = arr[Math.floor( (left + right) / 2 )]
+     let i = left
+     let j = right
+
+     while (i <= j) {
+        while (arr[i] < pivot) {
+            i++
+        }
+        while (arr[j] > pivot) {
+            j--
+        }
+
+        if (i <= j) {
+            [arr[i], arr[j]] = [arr[j], arr[i]]
+            i++
+            j--
+        }
+     }
+
+     return i
+ }
+
+ exports.quickSort = quickSort
+
+//  let s = [3,1,6,8,5,2,6,7]
+
+// //  s = sort(s)
+// quickSort (s)
  
-  console.log(s)
+//   console.log(s)
