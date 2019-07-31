@@ -76,6 +76,7 @@ class LinkedList {
             while (index !== pos) {
                 pre = cur
                 cur = cur.next
+                index++
             }
 
             pre.next = cur.next
@@ -86,17 +87,24 @@ class LinkedList {
     }
 
     indexOf (element) {
-        let index = -1
+        // let index = -1
+        // let cur = this.head
+
+        // for (let i = 0; i < this.length; i++) {
+        //     if (cur.element === element) {
+        //         index = i
+        //         break
+        //     } else {
+        //         cur = cur.next
+        //     }
+        // }
+
+        let index = 0
         let cur = this.head
 
-        for (let i = 0; i < this.length; i++) {
-            if (cur.element === element) {
-                index = i
-                break
-            } else {
-                cur = cur.next
-            }
-
+        while (cur.element !== element) {
+            index++
+            cur = cur.next
         }
 
         return index

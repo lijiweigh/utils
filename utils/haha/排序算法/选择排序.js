@@ -3,10 +3,8 @@
  * 然后放到已排序序列的末尾。以此类推，直到所有元素均排序完毕。
  */
 
- function sort(arr) {
-     
-
-     for (let i = 0; i < arr.length - 1; i++) {
+function sort(arr) {
+    for (let i = 0; i < arr.length - 1; i++) {
         let index = i
 
         for (let j = i + 1; j < arr.length; j++) {
@@ -16,14 +14,13 @@
         }
 
         [arr[i], arr[index]] = [arr[index], arr[i]]
+    }
 
-     }
+    return arr
+}
 
-     return arr
- }
+let s = [3, 1, 6, 8, 5, 2, 6, 7]
 
- let s = [3,1,6,8,5,2,6,7]
+sort(s)
 
- sort(s)
- 
-  console.log(s)
+console.log(s)

@@ -163,10 +163,10 @@
         }
 
         // 第二种情况，只有一个子节点
-        if (node.left === null) {
+        if (node.left === null && node.right !== null) {
             node = node.right
             return node
-        } else if (node.right === null) {
+        } else if (node.right === null && node.left !== null) {
             node = node.left
             return node
         }
