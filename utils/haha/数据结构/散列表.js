@@ -22,7 +22,7 @@ class HashMap {
         key = hashFunction(key)
         if (this.table[key]) {
             delete this.table[key]
-            return false
+            return true
         }
 
         return false
