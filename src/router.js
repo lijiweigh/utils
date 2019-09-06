@@ -18,6 +18,12 @@ export default new Router({
         name: "upload-file",
         component: () =>
           import("./views/upload-file/upload-file.vue")
-      }
+    },
+    {
+        path: "/drag",
+        name: "drag",
+        component: () =>
+          import("./views/drag")
+    }
   ]
 });

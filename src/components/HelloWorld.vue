@@ -105,6 +105,7 @@ export default {
   inheritAttrs: false,
   mounted() {
       console.log(this.$listeners)
+      console.log(process.env.VUE_APP_TEST_NAME)
   }
 };
 </script>
