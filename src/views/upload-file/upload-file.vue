@@ -1,6 +1,8 @@
 <template>
 	<div class="upload-file">
+        <hello-world>abc</hello-world>
 		<div class="preview-box" ref="preview"></div>
+        <slot name="abc"></slot>
 		<div class="upload">
 			<div
 				class="drag-area"
@@ -17,6 +19,7 @@
 </template>
 
 <script>
+import helloWorld from "../../components/HelloWorld"
 export default {
 	name: "upload-file",
 	methods: {
@@ -59,7 +62,13 @@ export default {
 		clickFile() {
 			this.$refs.file.click();
 		}
-	}
+    },
+    mounted() {
+        console.log(this.$slots)
+    },
+    components: {
+        helloWorld
+    }
 };
 </script>
 
