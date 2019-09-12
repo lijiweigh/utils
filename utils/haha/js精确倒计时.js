@@ -12,7 +12,7 @@ function normal (ms, interval = 1000) {
         console.log(offset)
         ms = ms - interval
         if (ms <= 0) {
-            clearImmediate(id)
+            clearTimeout(id)
         } else {
             id = setTimeout(start, interval);
         }
