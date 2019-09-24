@@ -14,7 +14,7 @@ Promise中有几个状态：
 - fulfilled: 成功的操作，为表述方便，fulfilled 使用 resolved 代替；
 - rejected: 失败的操作。
 
-[![](https://camo.githubusercontent.com/d7b16f91a1ee7caf2ac39bd73689543688e4ca55/68747470733a2f2f757365722d676f6c642d63646e2e786974752e696f2f323031382f362f31332f313633663463613866373235633934323f773d39353026683d35333226663d7765627026733d3131363838)](https://camo.githubusercontent.com/d7b16f91a1ee7caf2ac39bd73689543688e4ca55/68747470733a2f2f757365722d676f6c642d63646e2e786974752e696f2f323031382f362f31332f313633663463613866373235633934323f773d39353026683d35333226663d7765627026733d3131363838)
+[![image](https://camo.githubusercontent.com/d7b16f91a1ee7caf2ac39bd73689543688e4ca55/68747470733a2f2f757365722d676f6c642d63646e2e786974752e696f2f323031382f362f31332f313633663463613866373235633934323f773d39353026683d35333226663d7765627026733d3131363838)](https://camo.githubusercontent.com/d7b16f91a1ee7caf2ac39bd73689543688e4ca55/68747470733a2f2f757365722d676f6c642d63646e2e786974752e696f2f323031382f362f31332f313633663463613866373235633934323f773d39353026683d35333226663d7765627026733d3131363838)
 **pending可以转化为fulfilled或rejected并且只能转化一次，也就是说如果pending转化到fulfilled状态，那么就不能再转化到rejected。并且fulfilled和rejected状态只能由pending转化而来，两者之间不能互相转换。**
 
 ### 2.Promise的基本语法
@@ -123,11 +123,11 @@ Promise还可以做更多的事情，比如，有若干个异步任务，需要�
     var src2 = 'https://img1.mukewang.com/545862fe00017c2602200220-100-100.jpg'
     var result2 = loadImg(src2)
     Promise.all([result1, result2]).then(function(datas) {
-      console.log('all', datas[0]) //![](https://www.imooc.com/static/img/index/logo_new.png)
-      console.log('all', datas[1]) //![](https://img1.mukewang.com/545862fe00017c2602200220-100-100.jpg)
+      console.log('all', datas[0]) //![image](https://www.imooc.com/static/img/index/logo_new.png)
+      console.log('all', datas[1]) //![image](https://img1.mukewang.com/545862fe00017c2602200220-100-100.jpg)
     })
     Promise.race([result1, result2]).then(function(data) {
-      console.log('race', data) //![](https://img1.mukewang.com/545862fe00017c2602200220-100-100.jpg)
+      console.log('race', data) //![image](https://img1.mukewang.com/545862fe00017c2602200220-100-100.jpg)
     })  
     
 
