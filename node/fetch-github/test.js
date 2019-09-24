@@ -4,6 +4,13 @@ const fs = require("fs")
 const h2m = require("h2m")
 const path = require("path")
 
+let options = {
+    overides: {
+        img: function(node) {
+            return `![image](${node.attrs.src})`
+        }
+    }
+}
 let bodyElement = ".markdown-body"
 
 superagent.get("https://github.com/ljianshu/Blog").then(res => {
@@ -31,7 +38,7 @@ superagent.get("https://github.com/ljianshu/Blog").then(res => {
                 let p = superagent.get(url).then(res => {
                     let content = cheerio.load(res.text, {decodeEntities: false})
                     let html = content(bodyElement)
-                    let md = h2m(html)
+                    let md = h2m(html, options)
                     let w = fs.createWriteStream(path.resolve(__dirname, "../../articles", dirName, fileName + ".md"))
                     w.write(md,"UTF8")
                     w.end()
@@ -41,7 +48,7 @@ superagent.get("https://github.com/ljianshu/Blog").then(res => {
                 promises.push(p)
             })
             Promise.all(promises).then(res => {
-                console.log(`${dirName}成功`)
+                console.log(`${dirName}----成功`)
             }).catch(err => {
                 console.log(err)
             })
