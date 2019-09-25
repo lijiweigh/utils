@@ -8,6 +8,13 @@ let options = {
     overides: {
         img: function(node) {
             return `![image](${node.attrs.src})`
+        },
+        a: function(node) {
+            if (node.attrs.rel === "noopener noreferrer") {
+                return `${node.md}`
+            } else {
+                return `[${node.md}](${node.attrs.href})`
+            }
         }
     }
 }
@@ -17,7 +24,7 @@ superagent.get("https://github.com/ljianshu/Blog").then(res => {
 
     let $ = cheerio.load(res.text, {decodeEntities: false})
     
-    let h3 = $(".markdown-body h3")
+    let h3 = $(bodyElement).find("h3")
     h3.each((index, item) => {
         // console.log("--------------")
         let id = $(item).find("a").eq(0).attr("id")
