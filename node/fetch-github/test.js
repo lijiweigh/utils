@@ -29,8 +29,8 @@ superagent.get("https://github.com/ljianshu/Blog").then(res => {
             fs.mkdirSync(path.resolve(__dirname, "../../articles", dirName), { recursive: true })
             let promises = []
             h4.each((index2, item2) => {
-                
-                let fileName = $(item2).find("a").eq(1).html()
+                // console.log($(item2).text())
+                let fileName = $(item2).text()
                 fileName = fileName.replace(/\s/g,"")
                 fileName = fileName.replace(/\//g,"-")
                 let url = $(item2).find("a").eq(1).attr("href")
