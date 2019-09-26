@@ -24,6 +24,12 @@ export default new Router({
         name: "drag",
         component: () =>
           import("./views/drag")
+    },
+    {
+        path: "/no-scrollbar",
+        name: "no-scrollba",
+        component: () =>
+          import("./views/no-scrollbar")
     }
   ]
 });
