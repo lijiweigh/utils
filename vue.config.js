@@ -35,7 +35,7 @@ module.exports = {
             .loader("worker-loader")
             .options({
                 inline: true, 
-                name: 'workerName.[hash].js'
+                name: `./js/webworker.[hash].js`
             })
         
 

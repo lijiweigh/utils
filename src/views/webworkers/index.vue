@@ -1,5 +1,5 @@
 <template>
-    <div class="webworkers">webworkers</div>
+    <div class="webworkers">{{webData}}</div>
 </template>
 
 <script>
@@ -7,21 +7,31 @@
 import Worker from "../../workers/index.worker"
 export default {
     name: "my-webworkers",
-    created() {
-        
+    data() {
+        return {
+            webData: "",
+        }
     },
-    mounted() {
+    created() {
         let worker = new Worker()
 
         worker.onmessage = (e => {
             console.log("from child: -----" + e.data)
+            this.webData = e.data
         })
 
         worker.onerror = (err => {
             console.log(err)
         })
-
+        setInterval(() => {
+            let date = new Date().toLocaleString()
+            console.log(date)
+            worker.postMessage(date)
+        },1000)
         worker.postMessage("start")
+    },
+    mounted() {
+        
     }
 }
 </script>
