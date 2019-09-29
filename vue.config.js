@@ -19,5 +19,25 @@ module.exports = {
         //     name: '[name].[ext]',
         //   })
         //   .end();
+
+        // config.module.rules.push({
+        //     test: /\.worker.js$/,
+        //     use: {
+        //       loader: 'worker-loader',
+        //       options: { inline: true, name: 'workerName.[hash].js' }
+        //     }
+        //   })
+        config
+            .module
+            .rule("web-worders")
+            .test(/\.worker\.js$/)
+            .use("worker-loader")
+            .loader("worker-loader")
+            .options({
+                inline: true, 
+                name: 'workerName.[hash].js'
+            })
+        
+
     }
 }

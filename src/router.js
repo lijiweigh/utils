@@ -30,6 +30,25 @@ export default new Router({
         name: "no-scrollba",
         component: () =>
           import("./views/no-scrollbar")
-    }
+    },
+    {
+        path: "/postMessaage-index",
+        name: "postMessaage-index",
+        component: () =>
+          import("./views/postMessage/index")
+    },
+    {
+        path: "/postMessaage-child",
+        name: "postMessaage-child",
+        component: () =>
+          import("./views/postMessage/child")
+    },
+    {
+        path: "/webworkers",
+        name: "webworkers",
+        component: () =>
+          import("./views/webworkers/index.vue")
+    },
+    
   ]
 });
