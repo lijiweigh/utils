@@ -23,11 +23,14 @@ export default {
         worker.onerror = (err => {
             console.log(err)
         })
-        setInterval(() => {
+        let timer = setInterval(() => {
             let date = new Date().toLocaleString()
             console.log(date)
             worker.postMessage(date)
         },1000)
+        this.$once("hook:beforeDestroy", () => {
+            clearInterval(timer)
+        })
         worker.postMessage("start")
     },
     mounted() {

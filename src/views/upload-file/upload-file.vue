@@ -22,7 +22,18 @@ export default {
 	methods: {
 		handleFile(e) {
 			let preview = this.$refs.preview;
-			let files = this.$refs.file.files;
+            let files = this.$refs.file.files;
+            let reader = new FileReader()
+            console.log(files[0])
+            reader.onload = (e) => {
+                // console.log(e.target.result)
+                let img = new Image()
+                img.src = e.target.result
+                img.onload = () => {
+                    console.log(img.width, img.height)
+                }
+            }
+            reader.readAsDataURL(files[0])
 			for (let i = 0; i < files.length; i++) {
 				let img = document.createElement("img");
 				img.style.height = "100px";
