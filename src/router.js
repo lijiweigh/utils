@@ -49,6 +49,12 @@ export default new Router({
         component: () =>
           import("./views/webworkers/index.vue")
     },
+    {
+        path: "/test",
+        name: "test",
+        component: () =>
+          import("./views/test/test.vue")
+    },
     
   ]
 });
