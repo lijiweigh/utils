@@ -18,6 +18,43 @@ export default new Router({
         name: "upload-file",
         component: () =>
           import("./views/upload-file/upload-file.vue")
-      }
+    },
+    {
+        path: "/drag",
+        name: "drag",
+        component: () =>
+          import("./views/drag")
+    },
+    {
+        path: "/no-scrollbar",
+        name: "no-scrollba",
+        component: () =>
+          import("./views/no-scrollbar")
+    },
+    {
+        path: "/postMessaage-index",
+        name: "postMessaage-index",
+        component: () =>
+          import("./views/postMessage/index")
+    },
+    {
+        path: "/postMessaage-child",
+        name: "postMessaage-child",
+        component: () =>
+          import("./views/postMessage/child")
+    },
+    {
+        path: "/webworkers",
+        name: "webworkers",
+        component: () =>
+          import("./views/webworkers/index.vue")
+    },
+    {
+        path: "/test",
+        name: "test",
+        component: () =>
+          import("./views/test/test.vue")
+    },
+    
   ]
 });
