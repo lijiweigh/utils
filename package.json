@@ -9,6 +9,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "async-validator": "^3.2.3",
     "cheerio": "^1.0.0-rc.3",
     "core-js": "^2.6.5",
     "element-ui": "^2.12.0",
