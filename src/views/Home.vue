@@ -3,6 +3,16 @@
     <img alt="Vue logo" src="../assets/logo.png" />
     <HelloWorld @click="xxx(1)" @my-event="xxx(2)" data-inherits="abc" msg="Welcome to Your Vue.js App" />
     <div class="backgr"></div>
+    <el-popover
+        placement="bottom"
+        title="标题"
+        width="200"
+        :offset="20"
+        :visible-arrow="true"
+        trigger="click"
+        content="这是一段内容,这是一段内容,这是一段内容,这是一段内容。">
+        <el-button slot="reference">click 激活</el-button>
+    </el-popover>
   </div>
 </template>
 
