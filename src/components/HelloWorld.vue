@@ -107,6 +107,7 @@ export default {
   mounted() {
       console.log(this.$listeners)
       console.log(this.$slots)
+      console.log(process.env.VUE_APP_TEST_NAME)
   }
 };
 </script>
