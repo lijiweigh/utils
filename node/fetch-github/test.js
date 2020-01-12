@@ -29,6 +29,7 @@ superagent.get("https://github.com/ljianshu/Blog").then(res => {
         // console.log("--------------")
         let id = $(item).find("a").eq(0).attr("id")
         let dirName = id.slice(id.lastIndexOf("-") + 1)
+        dirName = dirName.replace(/\?|？/g, "")
         
         // console.log(dirName)
         let h4 = $(item).nextUntil("h3", "h4")
@@ -40,6 +41,7 @@ superagent.get("https://github.com/ljianshu/Blog").then(res => {
                 let fileName = $(item2).text()
                 fileName = fileName.replace(/\s/g,"")
                 fileName = fileName.replace(/\//g,"-")
+                fileName = fileName.replace(/\?|？/g, "")
                 let url = $(item2).find("a").eq(1).attr("href")
                 // console.log(fileName, url)
                 let p = superagent.get(url).then(res => {
