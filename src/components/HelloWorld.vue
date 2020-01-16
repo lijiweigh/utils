@@ -1,6 +1,7 @@
 <template>
-  <div class="hello" v-on="{click: computedListener.click}">
+  <div class="hello">
     <h1>{{ msg }}</h1>
+    <slot></slot>
     <p>
       For a guide and recipes on how to configure / customize this project,<br />
       check out the
@@ -105,6 +106,7 @@ export default {
   inheritAttrs: false,
   mounted() {
       console.log(this.$listeners)
+      console.log(this.$slots)
       console.log(process.env.VUE_APP_TEST_NAME)
   }
 };
