@@ -29,3 +29,26 @@ export default {
         }
     },
 }
+
+
+function broadcast2(componentName, eventName, params) {
+    let children = this.$children
+    children.some(child => {
+        if(child.$options.name === componentName) {
+            child.$emit.apply(child, eventName.concat[params])
+            return true
+        } else {
+            broadcast2.apply(child, [componentName, eventName].concat(params))
+        }
+    })
+}
+
+function dispatch2(componentName, eventName, params) {
+    let parent = this.$parent || this.$root
+    while(parent && (!parent.$options.name || parent.$options.name !== componentName)) {
+        parent = parent.$parent
+    }
+    if(parent) {
+        parent.$emit.apply(parent, [eventName].concat(params))
+    }
+}

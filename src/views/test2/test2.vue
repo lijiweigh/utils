@@ -7,6 +7,16 @@
             <a-form-item label="地址" prop="address">
                 <a-input v-model="formItem.address"></a-input>
             </a-form-item>
+            <a-form-item label="hahah" prop="singleCheckbox">
+                <a-checkbox v-model="formItem.singleCheckbox" trueValue="1" falseValue="0">singleCheckbox</a-checkbox>
+            </a-form-item>
+            <a-form-item label="heiehieehi" prop="multiCheckbox">
+                <a-checkbox-group v-model="formItem.multiCheckbox">
+                    <a-checkbox label="aaa">aaa</a-checkbox>
+                    <a-checkbox label="bbb">bbb</a-checkbox>
+                    <a-checkbox label="ccc">ccc</a-checkbox>
+                </a-checkbox-group>
+            </a-form-item>
         </a-form>
         <button @click="validate">验证</button>
         <button @click="reset">重置</button>
@@ -36,13 +46,17 @@ import aFormItem from "@/components/customize/a-form-item"
 import aInput from "@/components/customize/a-input"
 import aTable from "@/components/customize/a-table"
 import aTableColumn from "@/components/customize/a-table-column/index.vue"
+import aCheckbox from "@/components/customize/a-checkbox"
+import aCheckboxGroup from "@/components/customize/a-checkbox-group"
 
 export default {
     name: "test2",
     data() {
         return {
             formItem: {
-                name: "abc"
+                name: "abc",
+                multiCheckbox: []
+                // singleCheckbox: "0"
             },
             rules: {
                 name: [
@@ -50,6 +64,12 @@ export default {
                 ],
                 address: [
                     {required: true, trigger: "blur", message: "测测试试"}
+                ],
+                singleCheckbox: [
+                    {required: true, trigger: "blur", message: "测测试试"}
+                ],
+                multiCheckbox: [
+                    {required: true, type: "array", trigger: "blur", message: "测测试试"}
                 ]
             },
             columns: [
@@ -88,7 +108,8 @@ export default {
                     name: "dfssfdsfds",
                     birthday: new Date().getTime() - 323423423423
                 },
-            ]
+            ],
+            singleCheckbox: "1"
         }
     },
     created() {
@@ -103,7 +124,9 @@ export default {
         aFormItem,
         aInput,
         aTable,
-        aTableColumn
+        aTableColumn,
+        aCheckbox,
+        aCheckboxGroup,
     },
     methods: {
         validate() {
@@ -112,7 +135,7 @@ export default {
             })
         },
         reset() {
-            this.$refs.aForm.resetFields()
+            this.$refs.aForm.reset()
         }
     }
 }

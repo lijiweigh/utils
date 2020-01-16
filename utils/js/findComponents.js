@@ -78,3 +78,57 @@ export {
     findComponentsDownward,
     findBrothersComponents
 }
+
+function findComponentUpward2(context, componentName) {
+    let parent = context.$parent
+    while(parent && (!parent.$options.name || parent.$options.name !== componentName)) {
+        parent = parent.$parent
+    }
+    return parent
+}
+
+function findComponentsUpward2(context, componentName) {
+    let parent = context.$parent
+    let parents = []
+    if(parent) {
+        if(parent.$options.name === componentName) parents.push(parent)
+        return parents.concat(findComponentsUpward2(parent, componentName))
+    } else {
+        return []
+    }
+}
+
+function findComponentDownward2(context, componentName) {
+    let child = null
+    let children = context.$children
+    for(let c of children) {
+        if(c.$options.name === componentName) {
+            child = c
+            break;
+        } else {
+            child = findComponentDownward2(c, componentName)
+            if(child) break;
+        }
+    }
+    return child
+}
+
+function findComponentsDownward2(context, componentName) {
+    return context.$children.reduce((childs, c) => {
+        if(c.$options.name === componentName) childs.push(c)
+        return childs.concat(findComponentsDownward2(c, componentName))
+    }, [])
+}
+
+function findComponentsBrother(context, componentName, exceptMe = true) {
+    let bros = context.$parent.$children.filter(c => {
+        return c.$options.name === componentName
+    })
+    if(exceptMe) {
+        let index = bros.findIndex(b => {
+            return b._uid === context._uid
+        })
+        bros.splice(index, 1)
+    }
+    return bros
+}

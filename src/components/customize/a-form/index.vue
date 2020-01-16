@@ -5,20 +5,19 @@
 </template>
 
 <script>
-import Emitter from "../../../../utils/js/emitter"
 export default {
     name: "a-form",
-    props: {
-        model: {
-            type: Object
-        },
-        rules: {
-            type: Object
+    provide() {
+         return {
+            form: this
         }
     },
-    provide() {
-        return {
-            form: this
+    props: {
+        model: {
+
+        },
+        rules: {
+
         }
     },
     data() {
@@ -26,45 +25,43 @@ export default {
             fields: []
         }
     },
-    mixins: [Emitter],
     created() {
-        this.$on("on-form-item-add", (field) => {
+        this.$on("on-form-item-add", field => {
             this.fields.push(field)
         })
-        this.$on("on-form-item-destroy", (field) => {
-            this.fields.splice(this.fields.indexOf(field), 1)
+        this.$on("on-form-item-remove", field => {
+            let index = this.fields.indexOf(field)
+            if(index !== -1) {
+                this.fields.splice(index, 1)
+            }
         })
     },
     methods: {
-        resetFields() {
-            this.fields.forEach(field => {
-                field.resetField()
-            })
-        },
-        validate(callback) {
-            let valid = true
+        validate(cb) {
+            let isValid = true
             let count = 0
-            let length = this.fields.length
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 this.fields.forEach(field => {
-                    field.validate("", errors => {
-                        if(errors) {
-                            valid = false
+                    field.validate("", valid => {
+                        if(!valid) {
+                            isValid = false
                         }
-                        if(++count === length) {
-                            resolve(valid)
-                            callback && callback(valid)
+                        if(++count >= this.fields.length) {
+                            if(cb) {
+                                cb(isValid)
+                            } else {
+                                isValid ? resolve(isValid) : reject(isValid)
+                            }
                         }
                     })
                 })
+            })
+        },
+        reset() {
+            this.fields.forEach(field => {
+                field.reset()
             })
         }
     }
 }
 </script>
-
-<style lang="scss" scoped>
-.a-form {
-
-}
-</style>
