@@ -67,5 +67,11 @@ export default new Router({
         component: () =>
           import("./views/test3/test3.vue")
     },
+    {
+        path: "/canvas",
+        name: "canvas",
+        component: () =>
+          import("./views/canvas/canvas.vue")
+    },
   ]
 });
