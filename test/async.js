@@ -7,8 +7,12 @@ async function fn() {
     return true
 }
 
-(async function() {
+console.log("1111");
+
+(async () => {
     await fn()
     console.log("22222")
     return true
-})()
+})();
+
+console.log("3333")
