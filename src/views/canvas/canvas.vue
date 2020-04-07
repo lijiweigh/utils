@@ -10,13 +10,19 @@ export default {
     mounted() {
         let canvas = this.$refs.canvas
         let ctx = canvas.getContext("2d")
+        
         canvas.width = 500
         canvas.height = 500
+        // ctx.scale(2, 2)
+        ctx.translate(100, 100)
         ctx.beginPath()
         ctx.arc(250, 250, 100, 0, 2 )
         ctx.closePath()
         ctx.fillStyle = "skyblue"
         ctx.fill()
+
+        // ctx.transform(1, 0, 0, 1, 0 ,0)
+        ctx.setTransform(1, 0, 0, 1, 0 ,0)
 
         ctx.beginPath()
         ctx.moveTo(50, 100)
