@@ -73,5 +73,10 @@ export default new Router({
         component: () =>
           import("./views/canvas/canvas.vue")
     },
+    {
+        path: "/uploadImgHandle",
+        name: "uploadImgHandle",
+        component: () => import("./views/uploadImgHandle/uploadImgHandle.vue")
+    }
   ]
 });
