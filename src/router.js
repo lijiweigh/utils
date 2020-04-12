@@ -77,6 +77,11 @@ export default new Router({
         path: "/uploadImgHandle",
         name: "uploadImgHandle",
         component: () => import("./views/uploadImgHandle/uploadImgHandle.vue")
+    }, 
+    {
+        path: "/copyText",
+        name: "copyText",
+        component: () => import("./views/copyText/copyText")
     }
   ]
 });
