@@ -15,8 +15,8 @@ export default {
         /**
          * 执行顺序：
          *  1.同步代码
-         *  2.promise
-         *  3.requestAnimationFrame
+         *  2.promise (microTask)
+         *  3.requestAnimationFrame (渲染UI之前执行)
          *  4.必要的话渲染ui
          *  5.执行异步代码
          * 
