@@ -20,6 +20,12 @@ export default {
          *  4.必要的话渲染ui
          *  5.执行异步代码
          * 
+         * 
+         * offsetTop, offsetLeft, offsetWidth, offsetHeight
+            scrollTop, scrollLeft, scrollWidth, scrollHeight
+            clientTop, clientLeft, clientWidth, clientHeight
+            getComputedStyle() (currentStyle in IE)
+            这些属性、方法会强制刷新队列
          */
         // alert(getComputedStyle(this.$refs.stick).position)
         let div = document.createElement("div")
