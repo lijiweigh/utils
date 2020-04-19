@@ -1,6 +1,6 @@
 <template>
     <div class="my-ele-test">
-        <my-input ref="myInput" v-model="value" :clearable="true" :show-word-limit="true" placeholder="adfaffsafdsfds" style="width: 420px" @change="handleInput">
+        <!-- <my-input ref="myInput" v-model="value" :clearable="true" :show-word-limit="true" placeholder="adfaffsafdsfds" style="width: 420px" @change="handleInput">
             <template #append>
                 append
             </template>
@@ -15,7 +15,7 @@
                 <my-table-column prop="name" label="姓名" width="180"></my-table-column>
                 <my-table-column prop="address" label="地址"></my-table-column>
             </template>
-        </my-table>
+        </my-table> -->
     </div>
 </template>
 
@@ -23,6 +23,7 @@
 import myInput from "@/components/element/input"
 import myTable from "@/components/element/table"
 import myTableColumn from "@/components/element/table-column"
+
 export default {
     name: "my-ele-test",
     data() {
@@ -59,6 +60,7 @@ export default {
     },
     mounted() {
         // console.log(this.$refs.myInput.eleElement)
+
     },
     watch: {
         value(v) {
@@ -66,6 +68,7 @@ export default {
         }
     }
 }
+
 </script>
 
 <style lang="scss" scoped>

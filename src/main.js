@@ -10,6 +10,34 @@ Vue.use(ElementUI);
 
 Vue.config.productionTip = false;
 
+// window.onerror = err => {
+//     console.log(err)
+//     return true
+// }
+
+window.addEventListener("error", err => {
+    err.preventDefault()
+    console.log(err)
+    return true
+}, true)
+
+// let a = b
+
+// window.addEventListener("unhandledrejection", err => {
+//     err.preventDefault()
+//     console.log(err)
+// })
+
+try {
+    new Promise((resolve, reject) => {
+        let c = d
+    })
+} catch(e) {
+    console.log(e)
+}
+
+
+
 // new VConsole()
 
 new Vue({

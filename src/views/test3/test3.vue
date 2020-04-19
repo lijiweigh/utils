@@ -9,6 +9,7 @@
 <script>
 import aCheckboxGroup from "@/components/customize/a-checkbox-group"
 
+
 export default {
     name: "test2",
     mounted() {
