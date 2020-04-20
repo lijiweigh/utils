@@ -4,9 +4,12 @@ const fs = require("fs")
 const h2m = require("h2m")
 const path = require("path")
 
-let URL = "https://mp.weixin.qq.com/s/DSaLOOF0yBe8mEP5zywXng" 
-let FILENAME = "浏览器的EventLoop"
-let ELEMENT_SELECTOR = "#page-content"
+let URL = "https://segmentfault.com/a/1190000008432611" 
+let FILENAME = "js类型转换"
+// 思否的文章打开这个
+let ELEMENT_SELECTOR = ".card-body"
+// 微信公众号的文章打开这个
+// let ELEMENT_SELECTOR = "#page-content"
 
 let options = {
     overides: {
@@ -28,7 +31,7 @@ superagent.get(URL).then(res => {
     console.log("----------------------开始解析数据----------------------")
 
     // 微信公众号的文章打开这个
-    res.text = res.text.replace(/ol/g, "code").replace(/li/g, "span")
+    // res.text = res.text.replace(/ol/g, "code").replace(/li/g, "span")
 
     let $ = cheerio.load(res.text, {decodeEntities: false})
     let html = $(ELEMENT_SELECTOR)
