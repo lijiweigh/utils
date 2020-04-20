@@ -3,6 +3,7 @@
         <div class="inner">
             <div class="stick" ref="stick">stick</div>
         </div>
+        <div class="testtest" @click="testClick"></div>
     </div>
 </template>
 
@@ -30,25 +31,30 @@ export default {
          */
         // alert(getComputedStyle(this.$refs.stick).position)
         let div = document.createElement("div")
-        div.style.height = "0.5px"
+        div.style.height = "0.333px"
         div.style.background = "red"
         this.$refs.stick.appendChild(div)
         console.log(div.offsetHeight)
-        requestAnimationFrame(() => {
-            alert("requestAnimationFrame")
-            console.log("requestAnimationFrame")
-        })
-        let d = new Date().getTime()
-        Promise.resolve().then(() => {
-            while(new Date().getTime() - d < 5000) {
-                // console.log(new Date().getTime() - d)
-            }
-        })
-        setTimeout(() => {
-            alert("5s")
-            console.log("5s")
+        // requestAnimationFrame(() => {
+        //     alert("requestAnimationFrame")
+        //     console.log("requestAnimationFrame")
+        // })
+        // let d = new Date().getTime()
+        // Promise.resolve().then(() => {
+        //     while(new Date().getTime() - d < 5000) {
+        //         // console.log(new Date().getTime() - d)
+        //     }
+        // })
+        // setTimeout(() => {
+        //     alert("5s")
+        //     console.log("5s")
             
-        }, 1000);
+        // }, 1000);
+    },
+    methods: {
+        testClick() {
+            console.log("testClick")
+        }
     }
    
 }
@@ -64,6 +70,21 @@ export default {
             margin-top: 500px;
             position: sticky;
             top: 0;
+        }
+    }
+    .testtest {
+        width: 100px;
+        height: 100px;
+        background: red;
+        position: relative;
+        &::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
         }
     }
 }
