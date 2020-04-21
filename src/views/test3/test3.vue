@@ -4,6 +4,7 @@
             <div class="stick" ref="stick">stick</div>
             <!-- <div>{{aaa?.bbb?.ccc || "aaaaa"}}</div> -->
         </div>
+        <div class="testtest" @click="testClick"></div>
     </div>
 </template>
 
@@ -44,6 +45,7 @@ export default {
         //     console.log(document.getElementById("appendDiv"))
         // }, 0);
         // // console.log(div.offsetHeight)
+        console.log(div.offsetHeight)
         // requestAnimationFrame(() => {
         //     alert("requestAnimationFrame")
         //     console.log("requestAnimationFrame")
@@ -62,6 +64,11 @@ export default {
 
         let obj = {a: null}
         console.log(obj?.a || "aaa")
+    },
+    methods: {
+        testClick() {
+            console.log("testClick")
+        }
     }
    
 }
@@ -77,6 +84,21 @@ export default {
             margin-top: 500px;
             position: sticky;
             top: 0;
+        }
+    }
+    .testtest {
+        width: 100px;
+        height: 100px;
+        background: red;
+        position: relative;
+        &::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
         }
     }
 }

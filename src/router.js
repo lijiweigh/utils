@@ -82,6 +82,11 @@ export default new Router({
         path: "/copyText",
         name: "copyText",
         component: () => import("./views/copyText/copyText")
+    },
+    {
+        path: "/online-offline",
+        name: "online-offline",
+        component: () => import("./views/online-offline/online-offline")
     }
   ]
 });
