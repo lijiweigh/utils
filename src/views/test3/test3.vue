@@ -2,6 +2,7 @@
     <div class="test3">
         <div class="inner">
             <div class="stick" ref="stick">stick</div>
+            <!-- <div>{{aaa?.bbb?.ccc || "aaaaa"}}</div> -->
         </div>
     </div>
 </template>
@@ -12,6 +13,11 @@ import aCheckboxGroup from "@/components/customize/a-checkbox-group"
 
 export default {
     name: "test2",
+    data() {
+        return {
+            aaa: {bbb: null}
+        }
+    },
     mounted() {
         /**
          * 执行顺序：
@@ -30,25 +36,32 @@ export default {
          */
         // alert(getComputedStyle(this.$refs.stick).position)
         let div = document.createElement("div")
+        div.id = "appendDiv"
         div.style.height = "0.5px"
         div.style.background = "red"
         this.$refs.stick.appendChild(div)
-        console.log(div.offsetHeight)
-        requestAnimationFrame(() => {
-            alert("requestAnimationFrame")
-            console.log("requestAnimationFrame")
-        })
-        let d = new Date().getTime()
-        Promise.resolve().then(() => {
-            while(new Date().getTime() - d < 5000) {
-                // console.log(new Date().getTime() - d)
-            }
-        })
-        setTimeout(() => {
-            alert("5s")
-            console.log("5s")
+        // setTimeout(() => {
+        //     console.log(document.getElementById("appendDiv"))
+        // }, 0);
+        // // console.log(div.offsetHeight)
+        // requestAnimationFrame(() => {
+        //     alert("requestAnimationFrame")
+        //     console.log("requestAnimationFrame")
+        // })
+        // let d = new Date().getTime()
+        // Promise.resolve().then(() => {
+        //     while(new Date().getTime() - d < 5000) {
+        //         // console.log(new Date().getTime() - d)
+        //     }
+        // })
+        // setTimeout(() => {
+        //     alert("5s")
+        //     console.log("5s")
             
-        }, 1000);
+        // }, 1000);
+
+        let obj = {a: null}
+        console.log(obj?.a || "aaa")
     }
    
 }

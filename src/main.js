@@ -15,11 +15,11 @@ Vue.config.productionTip = false;
 //     return true
 // }
 
-window.addEventListener("error", err => {
-    err.preventDefault()
-    console.log(err)
-    return true
-}, true)
+// window.addEventListener("error", err => {
+//     err.preventDefault()
+//     console.log(err)
+//     return true
+// }, true)
 
 // let a = b
 
@@ -28,13 +28,13 @@ window.addEventListener("error", err => {
 //     console.log(err)
 // })
 
-try {
-    new Promise((resolve, reject) => {
-        let c = d
-    })
-} catch(e) {
-    console.log(e)
-}
+// try {
+//     new Promise((resolve, reject) => {
+//         let c = d
+//     })
+// } catch(e) {
+//     console.log(e)
+// }
 
 
 
