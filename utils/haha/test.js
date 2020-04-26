@@ -29,27 +29,36 @@
 //     }
 // })
 
-async function testAsync() {
-    let data = await new Promise(resolve => {
-        // setTimeout(() => {
+// async function testAsync() {
+//     let data = await new Promise(resolve => {
+//         // setTimeout(() => {
             
-            let b = a
-            resolve(b)
+//             let b = a
+//             resolve(b)
             
-            console.log("after error")
-        // }, 100);
-    }).catch(e => {
-        console.log(e.message)
-    })
+//             console.log("after error")
+//         // }, 100);
+//     }).catch(e => {
+//         console.log(e.message)
+//     })
     
-}
+// }
 
-testAsync()
+// testAsync()
 
 
 
-onerror = function(err) {
-    console.log(err)
-}
+// onerror = function(err) {
+//     console.log(err)
+// }
 
-console.log(this)
+// console.log(this)
+
+console.log("111111");
+
+(async () => {
+    await Promise.resolve()
+    console.log("22222")
+})()
+
+console.log("33333")

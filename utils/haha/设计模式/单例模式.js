@@ -26,3 +26,24 @@ function init () {
         publicVariable: "hello"
     }
 }
+
+
+const singleTon = (function() {
+    function Car() {
+        console.log("singleTon inner")
+    }
+    let instance
+    return {
+        getInstance() {
+            if(!instance) {
+                instance = new Car()
+            }
+            return instance
+        }
+    }
+})()
+
+let s = singleTon.getInstance()
+let s2 = singleTon.getInstance()
+
+console.log(s === s2)
