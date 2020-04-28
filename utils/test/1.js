@@ -119,6 +119,7 @@ function setCode(code, type) {
             r = r.slice(0, -3) + "\n" + setCode(item.children, item.schema.type) + r.slice(-3)
         }
     })
+    r = r.slice(0, -2) + "\n"
     return r
 }
 
