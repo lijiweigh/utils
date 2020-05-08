@@ -46,15 +46,23 @@ export default {
         // }, 0);
         // // console.log(div.offsetHeight)
         console.log(div.offsetHeight)
+        
+        let d = new Date().getTime()
+        // new Promise(resolve => {
+        //     resolve("new Promise")
+        // }).then(v => {
+        //     alert(v)
+        // })
+        // Promise.resolve().then(() => {
+        //     // while(new Date().getTime() - d < 5000) {
+        //     //     // console.log(new Date().getTime() - d)
+        //     // }
+        //     alert("Promise")
+        // })
+        
         // requestAnimationFrame(() => {
         //     alert("requestAnimationFrame")
         //     console.log("requestAnimationFrame")
-        // })
-        // let d = new Date().getTime()
-        // Promise.resolve().then(() => {
-        //     while(new Date().getTime() - d < 5000) {
-        //         // console.log(new Date().getTime() - d)
-        //     }
         // })
         // setTimeout(() => {
         //     alert("5s")

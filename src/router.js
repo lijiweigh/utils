@@ -68,6 +68,12 @@ export default new Router({
           import("./views/test3/test3.vue")
     },
     {
+        path: "/test4",
+        name: "test4",
+        component: () =>
+          import("./views/test4/test4.vue")
+    },
+    {
         path: "/canvas",
         name: "canvas",
         component: () =>
