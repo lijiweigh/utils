@@ -39,3 +39,47 @@ function off (key, cal) {
 
 }
 
+
+class EventEmitter {
+    constructor() {
+        this.events = {}
+    }
+    on(name, cb) {
+        if(!this.events[name]) {
+            this.events[name] = []
+        }
+        this.events[name].push(cb)
+    }
+    emit(name, ...args) {
+        let cbs = this.events[name]
+        if(cbs) {
+            cbs.forEach(cb => cb(...args))
+        }
+    }
+    off(name, cb) {
+        if(name === undefined) {
+            this.events = {}
+        }
+        if(cb === undefined) {
+            this.events[name] = []
+        }
+        let cbs = this.events[name]
+        if(cbs) {
+            let len = cbs.length
+            while(len--) {
+                if(cbs[len] === cb || cbs[len].cb === cb) {
+                    cbs.splice(len, 1)
+                }
+            }
+        }
+        
+    }
+    once(name, cb) {
+        const wraper = (...args) => {
+            cb(...args)
+            this.off(name, wraper)
+        }
+        wraper.cb = cb
+        this.on(name, wraper)
+    }
+}
