@@ -93,6 +93,11 @@ export default new Router({
         path: "/online-offline",
         name: "online-offline",
         component: () => import("./views/online-offline/online-offline")
+    },
+    {
+        path: "/fluid-drag",
+        name: "fluid-drag",
+        component: () => import("./views/fluid-drag/fluid-drag")
     }
   ]
 });
