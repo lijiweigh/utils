@@ -1,4 +1,3 @@
-
 // 递归方式
 function deepClone(obj) {
     if(!(obj instanceof Object)) {
@@ -107,7 +106,7 @@ function deepClone3(obj) {
         let unique = uniqueList.find(i => i.source === data) 
         if(unique) {
             parent[key] = unique.target
-            break
+            continue
         }
         uniqueList.push({
             source: data,
@@ -131,14 +130,64 @@ function deepClone3(obj) {
     return root
 }
 
+function deepClone4(obj) {
+    if(!(obj instanceof Object)) {
+        return obj
+    }
+    let unique = new WeakMap()
+    let result = obj instanceof Array ? [] : {}
+    let stack = [
+        {
+            parent: result,
+            key: undefined,
+            data: obj
+        }
+    ]
+
+    while(stack.length) {
+        let node = stack.pop()
+        let {parent, key, data} = node
+        let res = parent
+        if(key !== undefined) {
+            res = parent[key] = data instanceof Array ? [] : {}
+        }
+        let u = unique.get(data)
+        if(u) {
+            parent[key] = u
+            continue
+        }
+
+        unique.set(data, res)
+        // 对 symbol 类型key的支持
+        let keys = Object.keys(data).concat(Object.getOwnPropertySymbols(data))
+        for(let k of keys) {
+            if(data[k] instanceof Object) {
+                stack.push({
+                    parent: res,
+                    key: k,
+                    data: data[k]
+                })
+            } else {
+                res[k] = data[k]
+            }
+        }
+    }
+    return result
+}
+
 let b = {}
 let a = {
     a1: b,
     a2: b
 }
-a.a = a
-
-console.log(a.a1 === a.a2)
-let c = deepClone3(a)
+a.b = a
+console.log(a)
+console.log(a.a1)
+console.log(a.a2)
+// console.log(a.a1 === a.a2)
+let c = deepClone4(a)
+console.log(c.a1)
+console.log(c.a2)
 console.log(c.a1 === c.a2)
-console.log(c.a)
+console.log(c.b)
+console.log(c)
