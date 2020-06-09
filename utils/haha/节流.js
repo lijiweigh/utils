@@ -1,10 +1,12 @@
 let throttle = (fn, wait = 1000, imediate = true) => {
     let timer = null
     let canRun = imediate
+    let args = []
 
     return function () {
         let context = this
-        let args = [...arguments]
+        // 保证每次执行的时候参数都是最新的
+        args = [...arguments]
         
         if (!timer) {
             if (canRun) {
