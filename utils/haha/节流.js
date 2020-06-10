@@ -1,6 +1,6 @@
-let throttle = (fn, wait = 1000, imediate = true) => {
+let throttle = (fn, wait = 1000, immediate = true) => {
     let timer = null
-    let canRun = imediate
+    let canRun = immediate
     let args = []
 
     return function () {
