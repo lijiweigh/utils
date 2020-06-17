@@ -1,248 +1,201 @@
-## 1 nextTick的使用
+# [#](#渲染树的形成原理) 渲染树的形成原理
 
-vue中dom的更像并不是实时的，当数据改变后，vue会把渲染**watcher**添加到异步队列，异步执行，同步代码执行完成后再统一修改dom，我们看下面的代码。
+## [#](#系列文章) 系列文章
 
-    <template><divclass="box">{{msg}}</div></template>
+![image](https://user-gold-cdn.xitu.io/2019/10/26/16e05cfa4cbc2139?w=633&h=773&f=png&s=77495)
+
+说一下为什么写这个系列？
+
+- 原因一：该文章系列不管你是前端开发者，还是后端开发者在面试中经常会被问到一个问题 `“从浏览器输入url到页面显示经历了哪些？”` 一个`非常`常见的问题，看了该系列绝对能惊到面试官，可能就因为这一道面试题就收了你呢！嘿嘿。
+- 原因二：自己主要是后端方向，该系列文章也是为了学习记录，方便以后查阅。极客时间李兵老师也开了这个专栏，看后还有几个疑问的点，自己查询资料学习整理一遍。
+
+作者简介：koala，专注完整的 Node.js 技术栈分享，从 JavaScript 到 Node.js,再到后端数据库，祝您成为优秀的高级 Node.js 工程师。【程序员成长指北】作者，Github 博客开源项目 https://github.com/koala-coding/goodBlog
+
+## [#](#什么是dom) 什么是DOM
+
+DOM是Document Object Model（文档对象模型）的缩写
+
+> W3C 文档对象模型 （DOM） 是中立于平台和语言的接口，它允许程序和脚本动态地访问和更新文档的内容、结构和样式。-这是W3Cschool给的概念
+
+看了上面的概念好像太“官方”，解释就是 DOM 是对 HTML 文档结构化的表述，后端服务器返回给浏览器渲染引擎的 HTML 文件字节流是无法直接被浏览器渲染引擎理解的，要转化为渲染器引擎可以理解的内部结构，这个结构就是 DOM。 W3C 那个概念我好像还没有把它全部翻译完，“**允许程序和脚本动态地访问和更新文档的内容、结构和样式”**。这里其实就是DOM的作用了
+
+1. 页面展示: DOM 是生成页面的基础数据结构
+2. JavaScript 脚本操作: DOM 提供给 JavaScript 脚本操作的接口，JavaScript 可以通过这些接口对 DOM 结构进行访问，从而改变文档的结构和样式
+3. 安全: DOM 是一道安全防线，DOM 解析阶段会过滤掉一些不安全的 DOM 内容。
+
+> 本文我主要以 Webkit 渲染引擎来讲解，Safari 和 Chrome 都使用 Webkit。Webkit 是一款开源渲染引擎，它本来是为 linux 平台研发的，后来由 Apple 移植到 Mac 及 Windows 上。
+
+## [#](#渲染树最终形成经历了哪些)**渲染树**最终形成经历了哪些
+
+先看一张整体的流程图
+
+![image](https://user-gold-cdn.xitu.io/2019/10/27/16e0dc9e313e18e2?w=1162&h=744&f=jpeg&s=176670)下面围绕这张图和不同代表性对例子进行讲解。
+
+### [#](#html解析器) HTML解析器
+
+从后端返回给浏览器渲染引擎 HTML 文件字节流， 第一步要经过的就是渲染引擎中的 HTML 解析器。它实现了将 HTML 字节流转换为 DOM树 结构。 HTML 文件字节流返回的过程中 HTML 解析器就一直在解析，边加载边解析哦(这里注意下，有些文章写的有问题)。
+
+例子1:最简单的不带 CSS 和 JavaScript 的 HTML 代码讲解 HTML 解析器
+
+    <html>
+        <body>
+            <div>
+                程序员成长指北
+            <div>
+        <body>
+    <html>
+
+根据这段代码具体分析 HTML 解析器做了哪些事
+
+#### [#](#阶段一-字节流转换为字符并w3c标准令牌化) 阶段一 字节流转换为字符并W3C标准令牌化
+
+读取 HTML 的原始字节流，并根据文件的指定编码（例如 UTF-8）将它们转换成各个字符。 并将字符串转换成 W3C HTML5 标准规定的各种令牌，例如、，以及其他尖括号内的字符串。每个令牌都具有特殊含义和一组规则。
+
+一堆字节流 bytes
+
+    3C 62 6F ... 
     
-    export default {
-      name: 'index',
-      data () {
-        return {
-          msg: 'hello'
-        }
-      },
-      mounted () {
-        this.msg = 'world'
-        let box = document.getElementsByClassName('box')[0]
-        console.log(box.innerHTML) // hello
-      }
-    }
 
-可以看到，**修改数据**后并不会**立即更新dom** ，dom的更新是**异步**的，无法通过同步代码获取，需要使用**nextTick**，在下一次事件循环中获取。
+转成正常的html文件
 
-    this.msg = 'world'let box = document.getElementsByClassName('box')[0]
-    this.$nextTick(() => {
-      console.log(box.innerHTML) // world
-    })
+    <html>
+        <body>
+            <div>
+                koala
+                <p>
+                    程序员成长指北
+                <P>
+            <div>
+        <body>
+    <html>
 
-如果我们需要获取数据更新后的dom信息，比如动态获取宽高、位置信息等，需要使用nextTick。
+#### [#](#阶段二-通过分词器将字节流转化为-token) 阶段二 通过分词器将字节流转化为 Token
 
-## 2 数据变化dom更新与nextTick的原理分析
+分词器将字节流转换为一个一个的 Token，Token 分为 Tag Token和文本 Token，上面这段代码最后分词器转化后的结果是:
 
-### 2.1 数据变化
+![image](https://user-gold-cdn.xitu.io/2019/10/20/16de9a2bbccf77f5?w=601&h=51&f=png&s=15441)
 
-vue双向数据绑定依赖于ES5的**Object.defineProperty**，在数据初始化的时候，通过Object.defineProperty为每一个属性创建**getter**与**setter**，把数据变成响应式数据。对属性值进行修改操作时，如this.msg = world，实际上会触发**setter**。下面看源码，为方便越读，源码有删减。
+#### [#](#阶段三和阶段四-将-token-解析为-dom-节点，并将-dom-节点添加到-dom-树中) 阶段三和阶段四 将 Token 解析为 DOM 节点，并将 DOM 节点添加到 DOM 树中
 
-![image](http://api.fly63.com/vue_blog/public/Uploads/20190812/5d516dd5df278.jpg)
+HTML 解析器维护了一个 Token 栈结构（**数据结构**真是个好东西），这个栈结构的目的就是用来计算节点间的父子关系，在上一个阶段生成的 Token 会被顺序压到这个栈中，以下是具体规则：
 
-数据改变触发**set**函数
+- HTML 解析器开始工作时，会默认创建了一个根为 document 的空 DOM 结构，同时会将一个 StartTag document 的 Token 压入栈底。
 
-    Object.defineProperty(obj, key, {
-      enumerable: true,
-      configurable: true,
-      // 数据修改后触发set函数 经过一系列操作 完成dom更新
-      set: functionreactiveSetter (newVal) {
-        const value = getter ? getter.call(obj) : val
-        if (getter && !setter) returnif (setter) {
-          setter.call(obj, newVal)
-        } else {
-          val = newVal
-        }
-        childOb = !shallow && observe(newVal)
-        dep.notify() // 执行dep notify方法
-      }
-    })
+![image](https://user-gold-cdn.xitu.io/2019/10/20/16de9b307645fcb1?w=1054&h=544&f=jpeg&s=53331)
 
-执行**dep.notify**方法
+- 如果压入到栈中的 StartTagToken，HTML 解析器会为该 Token 创建一个 DOM节点，然后将这个 Dom节点加入到 DOM树中，它的`父节点`就是栈中相邻的那个元素生成的 DOM节点
 
-    exportdefaultclassDep{
-      constructor () {
-        this.id = uid++
-        this.subs = []
-      }
-      notify () {
-        const subs = this.subs.slice()
-        for (let i = 0, l = subs.length; i < l; i++) {
-          // 实际上遍历执行了subs数组中元素的update方法
-          subs[i].update()
-        }
-      }
-    }
+![image](https://user-gold-cdn.xitu.io/2019/10/20/16de9b32db14b4d0?w=1046&h=544&f=jpeg&s=63886)
 
-当数据被引用时，如<div>{{msg}}</div> ，会执行get方法，并向**subs**数组中添加渲染**Watcher**，当数据被改变时执行Watcher的**update**方法执行数据更新。
+- 如果分词器解析出来的是文本 Token，那么会生成一个文本节点，然后把这个文本 Dom 节点加入到 DOM 树中（注:文本Token不需入栈）,它的`父节点`就是当前栈顶 Token 所对应的 DOM 节点。
 
-    update () {
-      /* istanbul ignore else */if (this.lazy) {
-        this.dirty = true
-      } elseif (this.sync) {
-        this.run()
-      } else {
-        queueWatcher(this) //执行queueWatcher
-      }
-    }
+![image](https://user-gold-cdn.xitu.io/2019/10/20/16de9b34a296a0c7?w=1066&h=598&f=jpeg&s=91205)
 
-update 方法最终执行**queueWatcher**
+- 如果分词器解析出来的是 EndTag 标签，比如例子中的 EndTag div，HTML 解析器会查看 Token栈顶的元素是否是 StartTag div，如果是，就将 StartTag div从栈中弹出，边上该 div 元素解析完成。
 
-    functionqueueWatcher (watcher: Watcher) {
-      const id = watcher.id
-      if (has[id] == null) {
-        has[id] = trueif (!flushing) {
-          queue.push(watcher)
-        } else {
-          // if already flushing, splice the watcher based on its id// if already past its id, it will be run next immediately.let i = queue.length - 1while (i > index && queue[i].id > watcher.id) {
-            i--
-          }
-          queue.splice(i + 1, 0, watcher)
-        }
-        // queue the flushif (!waiting) {
-          // 通过waiting 保证nextTick只执行一次
-          waiting = true// 最终queueWatcher 方法会把flushSchedulerQueue 传入到nextTick中执行
-          nextTick(flushSchedulerQueue)
-        }
-      }
-    }
+![image](https://user-gold-cdn.xitu.io/2019/10/20/16de9b3d02fe010f?w=1180&h=642&f=jpeg&s=112404)
 
-执行**flushSchedulerQueue**方法
+- 最后按照上面的规则，分词器一路解析下来，就形成了这个简单的 DOM 树。
 
-    functionflushSchedulerQueue(){
-      currentFlushTimestamp = getNow()
-      flushing = true
-      let watcher, id
-      ...
-      for (index = 0; index < queue.length; index++) {
-        watcher = queue[index]
-        if (watcher.before) {
-          watcher.before()
-        }
-        id = watcher.id
-        has[id] = null// 遍历执行渲染watcher的run方法 完成视图更新
-        watcher.run()
-      }
-      // 重置waiting变量 
-      resetSchedulerState()
-      ...
-    }
+![image](https://user-gold-cdn.xitu.io/2019/10/23/16df8e2e6a2bcdcd?w=1058&h=698&f=jpeg&s=94434)
 
-也就是说当数据变化最终会把**flushSchedulerQueue**传入到**nextTick**中执行flushSchedulerQueue函数会遍历执行**watcher.run()**方法，watcher.run()方法最终会完成视图更新，接下来我们看关键的**nextTick**方法到底是啥
+此时应该搞懂了核心图中 HTML 解析器的部分，和 DOM 树的基本绘制流程，但是现实很残酷，哪里有这么简单的前端代码，还有有 JavaScript 和 CSS 呢！继续往下看
 
-### 2.2 nextTick
+### [#](#css解析器) CSS解析器
 
-nextTick方法会被传进来的回调push进**callbacks**数组，然后执行**timerFunc**方法
+CSS 解析器最终的目的也是构建树不过它构建的树是 CSSOM 树 树的构建流程和 DOM 树的构建流程基本相同
 
-    exportfunctionnextTick (cb?: Function, ctx?: Object) {
-      let _resolve
-      // push进callbacks数组
-      callbacks.push(() => {
-         cb.call(ctx)
-      })
-      if (!pending) {
-        pending = true// 执行timerFunc方法
-        timerFunc()
-      }
-    }
+![image](https://user-gold-cdn.xitu.io/2019/10/20/16de9591a925e4c0?w=481&h=51&f=png&s=16677)还是那张图，具体我就不一一讲解一遍了。直接用这个简单例子
 
-**timerFunc**
+    body {font-size: 16px }
+    div {font-weight: bold }
+    div p {display: none }
 
-    let timerFunc
-    // 判断是否原生支持Promiseif (typeofPromise !== 'undefined' && isNative(Promise)) {
-      const p = Promise.resolve()
-      timerFunc = () => {
-        // 如果原生支持Promise 用Promise执行flushCallbacks
-        p.then(flushCallbacks)
-        if (isIOS) setTimeout(noop)
-      }
-      isUsingMicroTask = true// 判断是否原生支持MutationObserver
-    } elseif (!isIE && typeof MutationObserver !== 'undefined' && (
-      isNative(MutationObserver) ||
-      // PhantomJS and iOS 7.x
-      MutationObserver.toString() === '[object MutationObserverConstructor]'
-    )) {
-      let counter = 1// 如果原生支持MutationObserver 用MutationObserver执行flushCallbacksconst observer = new MutationObserver(flushCallbacks)
-      const textNode = document.createTextNode(String(counter))
-      observer.observe(textNode, {
-        characterData: true
-      })
-      timerFunc = () => {
-        counter = (counter + 1) % 2
-        textNode.data = String(counter)
-      }
-      isUsingMicroTask = true// 判断是否原生支持setImmediate 
-    } elseif (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
-      timerFunc = () => {
-      // 如果原生支持setImmediate  用setImmediate执行flushCallbacks
-        setImmediate(flushCallbacks)
-      }
-    // 都不支持的情况下使用setTimeout 0
-    } else {
-      timerFunc = () => {
-        // 使用setTimeout执行flushCallbacks
-        setTimeout(flushCallbacks, 0)
-      }
-    }
-    
-    // flushCallbacks 最终执行nextTick 方法传进来的回调函数functionflushCallbacks () {
-      pending = falseconst copies = callbacks.slice(0)
-      callbacks.length = 0for (let i = 0; i < copies.length; i++) {
-        copies[i]()
-      }
-    }
+看下最后构造的 CSSOM 树
 
-nextTick会优先使用**microTask**, 其次是**macroTask** 。
+![image](https://user-gold-cdn.xitu.io/2019/10/21/16deee0473c96fdc?w=346&h=261&f=png&s=31542)
 
-也就是说nextTick中的任务，实际上会异步执行，**nextTick(callback)**类似于
-**Promise.resolve().then(callback)**，或者**setTimeout(callback, 0)**。
+CSSOM 为何具有树结构？为页面上的任何对象计算最后一组样式时，浏览器都会先从适用于该节点的最通用规则开始（例如，如果该节点是 body 元素的子项，则应用所有 body 样式），然后通过应用更具体的规则（即规则“向下级联”）以递归方式优化计算的样式。
 
-也就是说vue的视图更新 **nextTick(flushSchedulerQueue)**等同于**setTimeout(flushSchedulerQueue, 0)**，会异步执行flushSchedulerQueue函数，所以我们在this.msg = hello 并不会立即更新dom。
+以上面的 CSSOM 树为例进行更具体的阐述。span 标记内包含的任何置于 body 元素内的文本都将具有 16 像素字号，并且颜色为红色 — font-size 指令从 body 向下级联至 span。不过，如果某个 span 标记是某个段落 (p) 标记的子项，则其内容将不会显示。
 
-要想在dom更新后读取dom信息，我们需要在**本次异步任务创建之后创建一个异步任务**。
+> 注意点:
+> 
+> 1. CSS解析可以与DOM解析同进行
+> 2. 如果只有 CSS 和 HTML 的页面，CSS 不会影响 DOM 树的创建，但是如果页面中还有 JavaScript，结论就不一样了，请继续往下看。
 
-![image](http://api.fly63.com/vue_blog/public/Uploads/20190812/5d516de2d8656.jpg)
+### [#](#javascript对dom树与cssom树创建的影响) javascript对DOM树与CSSOM树创建的影响
 
-为了验证这个想法我们不用nextTick，直接用**setTimeout**实验一下。如下面代码，验证了我们的想法。
+上面两个例子中都还没有javascript的出现，接下来说下JavaScript 对 DOM 树和 CSSOM 树构建的影响。
 
-    <template><divclass="box">{{msg}}</div></template><script>exportdefault {
-      name: 'index',
-      data () {
-        return {
-          msg: 'hello'
-        }
-      },
-      mounted () {
-        this.msg = 'world'let box = document.getElementsByClassName('box')[0]
-        setTimeout(() => {
-          console.log(box.innerHTML) // world
-        })
-      }
-    }
+- 情况1：当前页面中只有 Html 和 JavaScript，而且 JavaScript 非外部引入
 
-如果我们在数据修改前nextTick ，那么我们添加的异步任务会在渲染的异步任务**之前**执行，拿不到更新后的dom。
+DOM 树构建时当遇到JavaScript脚本，就要暂停 DOM 解析，先去执行Javascript，因为在JavaScript可能会操作当前已经生成的DOM节点。
 
-    <template><divclass="box">{{msg}}</div></template><script>exportdefault {
-      name: 'index',
-      data () {
-        return {
-          msg: 'hello'
-        }
-      },
-      mounted () {
-        this.$nextTick(() => {
-          console.log(box.innerHTML) // hello
-        })
-        this.msg = 'world'let box = document.getElementsByClassName('box')[0]
-      }
-    }
+有一点需要注意:javascript是可能操作**当前已经生成的DOM节点**，如果是后面还未生成的DOM节点是不生效的，比如这段代码:
 
-## 3 总结
+```
+<html>
+     <body>
+         <div>1</div>
+         <script>
+             let div1 = document.getElementsByTagName('div')[0]
+             div1.innerText = '程序员成长指北'
 
-vue为了保证性能，会把dom修改添加到异步任务，所有同步代码执行完成后再统一修改dom，**一次事件循环中**的多次数据修改只会触发一次watcher.run()。也就是通过nextTick，nextTick会优先使用microTask创建异步任务。vue项目中如果需要获取修改后的dom信息，需要通过nextTick在dom更新任务之后创建一个异步任务。如官网所说，nextTick会在下次 DOM 更新循环结束之后执行延迟回调。
+             let div2 = document.getElementsByTagName('div')[1]
+             div2.innerText = 'kaola'
+         </script>
+         <div>test</div>
+     </body>
+ </html>
+```
 
-.tj_box{box-sizing: border-box;margin: 5px auto;width: 100%;border: 1px solid #ddd;border-radius: 5px;padding-bottom: 10px;}.tj_box .tj_tit{background: #FF5E52;display: inline-block;padding: 5px 15px;color:#fff;margin: 10px;margin-top: 0;}.tj_box .tj_li{margin:0 10px;padding: 8px 0; overflow: hidden;border-bottom: 1px dotted #ddd;}.tj_box .tj_li p{font-size: 14px;color:#666;margin: 0;line-height: 20px;}.tj_box .tj_li a{display: inline-block;color:#FF5E52;cursor: pointer;margin-left: 5px;font-weight: bold;}
-站长推荐
+显示结果为两行： 第一行结果是程序员成长指北 第二行记过是test 因为在执行第三行和第四行 script 脚本的时候，DOM树中还没有生成第二个 div对应的dom节点。
 
-1.阿里云: 本站目前使用的是阿里云主机，安全/可靠/稳定。点击领取2000元代金券、了解最新阿里云产品的各种优惠活动[点击进入](http://www.fly63.com/nav/2907)
+- 情况2：当页面中同时有Html JavaScript CSS ，而且都非外部引入
 
-2.腾讯云: 提供云服务器、云数据库、云存储、视频与CDN、域名等服务。腾讯云各类产品的最新活动，优惠券领取[点击进入](http://www.fly63.com/nav/2908)
+DOM 树构建时当遇到 JavaScript 脚本，就要暂停 DOM 解析，先去执行 JavaScript，同时 JavaScript 还要判断 CSSOM 是否解析完成，因为在 JavaScript 可能会操作 CSSOM 节点，CSSOM 节点确认解析完成，执行 JavaScript 再次回到 DOM 树创建。（**所以这里也可以所CSS解析间接影响DOM树创建**）
 
-3.广告联盟: 整理了目前主流的广告联盟平台，如果你有流量，可以作为参考选择适合你的平台[点击进入](http://www.fly63.com/article/detial/1460)
+-  情况3：当页面中同时有Html，JavaScript， CSS ，而且外部引入
 
-链接: [http://www.fly63.com/article/detial/4657](http://www.fly63.com/article/detial/4657)
+Webkit渲染引擎有一个优化，当渲染进程接收HTML文件字节流时，会先开启一个预解析线程，如果遇到 JavaScript 文件或者 CSS 文件，那么预解析线程会提前下载这些数据。当渲染进程接收 HTML 文件字节流时，会先开启一个预解析线程，如果遇到 JavaScript 文件或者 CSS 文件，那么预解析线程会提前下载这些数据。DOM树在创建过程中如果遇到JavaScript文件，接下来就和情况2类型一样了。
+
+影响关系图: 画了一张影响关系图希望大家更好的记忆:
+
+![image](https://user-gold-cdn.xitu.io/2019/10/26/16e058ac50af9dd4?w=371&h=141&f=png&s=19056)
+
+### [#](#构建渲染树) 构建渲染树
+
+通过 DOM 树和 CSSOM 树，浏览器就可以通过二者构建渲染树了。浏览器会先从 DOM 树的根节点开始遍历每个可见节点，然后对每个可见节点找到适配的CSS样式规则并应用。具体的规则有以下几点需要注意：
+
+- Render Tree和DOM Tree不完全对应。
+
+- 请注意 visibility: hidden 与 display: none 是不一样的。前者隐藏元素，但元素仍占据着布局空间（即将其渲染成一个空框），而后者 (display: none) 将元素从渲染树中完全移除，元素既不可见，也不是布局的组成部分
+
+看一下前问中提到的 DOM 树和 CSSOM 树最终合成的渲染树结果是:
+
+![image](https://user-gold-cdn.xitu.io/2019/10/26/16e058c19b3aa723?w=341&h=241&f=png&s=23625)
+
+### [#](#本文渲染树形成过程可以做哪些优化) 本文渲染树形成过程可以做哪些优化
+
+看完了渲染树的形成，在开发过程中我们能做哪些优化？(注意这里的优化只是针对渲染树形成部分，其他的优化会在系列文章之后继续讲)
+
+1. 在引入顺序上，CSS 资源先于 JavaScript 资源。样式文件应当在 head 标签中，而脚本文件在 body 结束前，这样可以防止阻塞的方式。
+2. 尽量减少在 JavaScript 中进行DOM操作。
+3. 简化并优化CSS选择器，尽量将嵌套层减少到最小。
+4. 修改元素样式时，更改其class属性是性能最高的方法。
+
+### [#](#总结) 总结
+
+看完这篇文章赶紧检测一下你写的前端代码，脑补一下渲染树形成过程，想想自己代码有没有需要改善的地方，系列文章会继续分享，下篇该系列文章渲染树的布局与绘制以及虚拟DOM树出现的必要性，感谢观看。
+
+### [#](#参考资料) 参考资料:
+
+极客时间浏览器专栏
+
+浏览器渲染原理: https://srtian96.gitee.io/blog/2018/06/01/浏览器渲染原理/
+
+### [#](#关注我) 关注我
+
+觉得不错点个Star，欢迎 加群 互相学习。
+                              ![image](https://user-gold-cdn.xitu.io/2019/10/29/16e166ee15647127?w=900&h=500&f=png&s=105652)
