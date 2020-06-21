@@ -1,248 +1,286 @@
-## 1 nextTick的使用
+## CSS深入理解流体特性和BFC特性下多栏自适应布局
 
-vue中dom的更像并不是实时的，当数据改变后，vue会把渲染**watcher**添加到异步队列，异步执行，同步代码执行完成后再统一修改dom，我们看下面的代码。
+这篇文章发布于 2015年02月12日，星期四，23:36，归类于 [CSS相关](https://www.zhangxinxu.com/wordpress/category/css/)。                        阅读 149581 次, 今日 13 次                        [59 条评论](#comments)
 
-    <template><divclass="box">{{msg}}</div></template>
-    
-    export default {
-      name: 'index',
-      data () {
-        return {
-          msg: 'hello'
-        }
-      },
-      mounted () {
-        this.msg = 'world'
-        let box = document.getElementsByClassName('box')[0]
-        console.log(box.innerHTML) // hello
-      }
+ 
+
+[2020年阿里最新面试题汇总免费领取](http://www.mawen.co/?utm_source=zxx-web-2020)
+
+### 一、开篇之言
+
+要说web上实现两栏自适应布局的方法，一双手都数不过来。不知大家有没有细想过，为什么这些方法可以实现自适应布局呢？![image](https://mat1.gtimg.com/www/mb/images/face/32.gif)
+
+本文就将深入探讨下流体特性和BFC特性下的两栏自适应布局，还是针对传统布局。一些现代布局，如弹性盒子模型布局(Flexbox Layout)，格栅布局(Grid Layout)不在本文探讨之类。
+
+> 有些人看了个标题，以及看了前面一两段，发现，都是我知道的概念嘛，什么流动性，什么BFC~~于是，就悻悻离开了。这就是我们常说的浮躁，保持一颗谦逊的心，细细阅读，你会发现，其中一定有你所没有关注过的地方，所谓三人行必有我师。没错，这句话就是写给你看的，同时也是自我内省与监督。
+
+### 二、块状元素的流体特性与自适应布局
+
+**流体特性**
+
+块状水平元素，如`div`元素（下同），在默认情况下（非浮动、绝对定位等），水平方向会自动填满外部的容器；如果有`margin-left/margin-right`, `padding-left/padding-right`, `border-left-width/border-right-width`等，实际内容区域会响应变窄。
+
+一图胜千言，一例胜千图。可参考下面例子，感受下`div`元素的流体特性：
+
+图片宽度一直`width:100%`，依次点击3个按钮，结果随着`margin`, `padding`, `border`的出现，其可用宽度自动跟着减小，形成了自适应效果。就像放在容器中的水流一样，内容区域会随着`margin`, `padding`, `border`的出现自动填满剩余空间，这就是块状元素的流体特性。
+
+**流体特性**
+
+下面，我们稍微做一个调整，`div`距离容器左侧`margin``150`像素，里面的图片同样`100%`自适应内容区域。HTML如下：
+
+    .flow-box {
+        width: 500px; background-color: #eee; overflow:auto; resize:horizontal;
     }
-
-可以看到，**修改数据**后并不会**立即更新dom** ，dom的更新是**异步**的，无法通过同步代码获取，需要使用**nextTick**，在下一次事件循环中获取。
-
-    this.msg = 'world'let box = document.getElementsByClassName('box')[0]
-    this.$nextTick(() => {
-      console.log(box.innerHTML) // world
-    })
-
-如果我们需要获取数据更新后的dom信息，比如动态获取宽高、位置信息等，需要使用nextTick。
-
-## 2 数据变化dom更新与nextTick的原理分析
-
-### 2.1 数据变化
-
-vue双向数据绑定依赖于ES5的**Object.defineProperty**，在数据初始化的时候，通过Object.defineProperty为每一个属性创建**getter**与**setter**，把数据变成响应式数据。对属性值进行修改操作时，如this.msg = world，实际上会触发**setter**。下面看源码，为方便越读，源码有删减。
-
-![image](http://api.fly63.com/vue_blog/public/Uploads/20190812/5d516dd5df278.jpg)
-
-数据改变触发**set**函数
-
-    Object.defineProperty(obj, key, {
-      enumerable: true,
-      configurable: true,
-      // 数据修改后触发set函数 经过一系列操作 完成dom更新
-      set: functionreactiveSetter (newVal) {
-        const value = getter ? getter.call(obj) : val
-        if (getter && !setter) returnif (setter) {
-          setter.call(obj, newVal)
-        } else {
-          val = newVal
-        }
-        childOb = !shallow && observe(newVal)
-        dep.notify() // 执行dep notify方法
-      }
-    })
-
-执行**dep.notify**方法
-
-    exportdefaultclassDep{
-      constructor () {
-        this.id = uid++
-        this.subs = []
-      }
-      notify () {
-        const subs = this.subs.slice()
-        for (let i = 0, l = subs.length; i < l; i++) {
-          // 实际上遍历执行了subs数组中元素的update方法
-          subs[i].update()
-        }
-      }
-    }
-
-当数据被引用时，如<div>{{msg}}</div> ，会执行get方法，并向**subs**数组中添加渲染**Watcher**，当数据被改变时执行Watcher的**update**方法执行数据更新。
-
-    update () {
-      /* istanbul ignore else */if (this.lazy) {
-        this.dirty = true
-      } elseif (this.sync) {
-        this.run()
-      } else {
-        queueWatcher(this) //执行queueWatcher
-      }
-    }
-
-update 方法最终执行**queueWatcher**
-
-    functionqueueWatcher (watcher: Watcher) {
-      const id = watcher.id
-      if (has[id] == null) {
-        has[id] = trueif (!flushing) {
-          queue.push(watcher)
-        } else {
-          // if already flushing, splice the watcher based on its id// if already past its id, it will be run next immediately.let i = queue.length - 1while (i > index && queue[i].id > watcher.id) {
-            i--
-          }
-          queue.splice(i + 1, 0, watcher)
-        }
-        // queue the flushif (!waiting) {
-          // 通过waiting 保证nextTick只执行一次
-          waiting = true// 最终queueWatcher 方法会把flushSchedulerQueue 传入到nextTick中执行
-          nextTick(flushSchedulerQueue)
-        }
-      }
-    }
-
-执行**flushSchedulerQueue**方法
-
-    functionflushSchedulerQueue(){
-      currentFlushTimestamp = getNow()
-      flushing = true
-      let watcher, id
-      ...
-      for (index = 0; index < queue.length; index++) {
-        watcher = queue[index]
-        if (watcher.before) {
-          watcher.before()
-        }
-        id = watcher.id
-        has[id] = null// 遍历执行渲染watcher的run方法 完成视图更新
-        watcher.run()
-      }
-      // 重置waiting变量 
-      resetSchedulerState()
-      ...
-    }
-
-也就是说当数据变化最终会把**flushSchedulerQueue**传入到**nextTick**中执行flushSchedulerQueue函数会遍历执行**watcher.run()**方法，watcher.run()方法最终会完成视图更新，接下来我们看关键的**nextTick**方法到底是啥
-
-### 2.2 nextTick
-
-nextTick方法会被传进来的回调push进**callbacks**数组，然后执行**timerFunc**方法
-
-    exportfunctionnextTick (cb?: Function, ctx?: Object) {
-      let _resolve
-      // push进callbacks数组
-      callbacks.push(() => {
-         cb.call(ctx)
-      })
-      if (!pending) {
-        pending = true// 执行timerFunc方法
-        timerFunc()
-      }
-    }
-
-**timerFunc**
-
-    let timerFunc
-    // 判断是否原生支持Promiseif (typeofPromise !== 'undefined' && isNative(Promise)) {
-      const p = Promise.resolve()
-      timerFunc = () => {
-        // 如果原生支持Promise 用Promise执行flushCallbacks
-        p.then(flushCallbacks)
-        if (isIOS) setTimeout(noop)
-      }
-      isUsingMicroTask = true// 判断是否原生支持MutationObserver
-    } elseif (!isIE && typeof MutationObserver !== 'undefined' && (
-      isNative(MutationObserver) ||
-      // PhantomJS and iOS 7.x
-      MutationObserver.toString() === '[object MutationObserverConstructor]'
-    )) {
-      let counter = 1// 如果原生支持MutationObserver 用MutationObserver执行flushCallbacksconst observer = new MutationObserver(flushCallbacks)
-      const textNode = document.createTextNode(String(counter))
-      observer.observe(textNode, {
-        characterData: true
-      })
-      timerFunc = () => {
-        counter = (counter + 1) % 2
-        textNode.data = String(counter)
-      }
-      isUsingMicroTask = true// 判断是否原生支持setImmediate 
-    } elseif (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
-      timerFunc = () => {
-      // 如果原生支持setImmediate  用setImmediate执行flushCallbacks
-        setImmediate(flushCallbacks)
-      }
-    // 都不支持的情况下使用setTimeout 0
-    } else {
-      timerFunc = () => {
-        // 使用setTimeout执行flushCallbacks
-        setTimeout(flushCallbacks, 0)
-      }
+    .flow-content {
+        margin-left: 150px;
     }
     
-    // flushCallbacks 最终执行nextTick 方法传进来的回调函数functionflushCallbacks () {
-      pending = falseconst copies = callbacks.slice(0)
-      callbacks.length = 0for (let i = 0; i < copies.length; i++) {
-        copies[i]()
-      }
+
+    <div class="flow-box">
+        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
+    </div>
+    
+
+图片右下角有两道斜杠，我们可以resize拉伸（现代浏览器，且非移动访问），会发现，左侧永远150像素留白，而图片随着容器宽度变化而自适应变化了。
+
+此时，我们需要好好利用左侧150像素的留白间距，岂不是就可以实现两栏自适应效果！？
+
+为了不影响原本的流体特性，我们可以使用破坏性属性，如浮动(float:left)，或者绝对定位(position:absolute)。
+
+我们直接HTML如下调整即可：
+
+    <div class="flow-box">
+        <img src="mm1.jpg" width="128" style="float:left;">
+        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
+    </div>
+    
+
+    <div class="flow-box">
+        <img src="mm1.jpg" width="128" style="position:absolute;">
+        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
+    </div>
+    
+
+结果分别如下：
+
+当然，你可以左侧有多个浮动，或者左浮动+右浮动。于是，我们不仅可以实现两栏自适应效果，多栏自适应效果也不在话下。
+
+然而，利用块状元素流体特性实现的自适应布局有个不足，就是，我们需要知道浮动或绝对定位内容的尺寸。然后，流体内容才能有对应的`margin`或`padding`或`border`值进行位置修正。于是，问题来了，我们没法单纯使用一个公用的类名，类似`.clearfix`这样，整站通用。因为不同自适应场景的留白距离是不一样的。
+
+此时，我们可以利用块状元素的BFC特定实现更强大更智能的多栏自适应布局（本文重点）。
+
+### 三、元素的BFC特性与自适应布局
+
+**1. BFC元素简介与基本表现**
+
+BFC全称”Block Formatting Context”, 中文为“块级格式化上下文”。啪啦啪啦特性什么的，一言难尽，大家可以自行去查找，我这里不详述，免得乱了主次，总之，记住这么一句话：BFC元素特性表现原则就是，内部子元素再怎么翻江倒海，翻云覆雨都不会影响外部的元素。所以，避免margin穿透啊，清除浮动什么的也好理解了。
+
+![image](https://image.zhangxinxu.com/image/blog/201502/inner-outer.png)
+
+什么时候会触发BFC呢？常见的如下：
+
+- `float`的值不为`none`。
+- `overflow`的值为`auto`,`scroll`或`hidden`。
+- `display`的值为`table-cell`, `table-caption`, `inline-block`中的任何一个。
+- `position`的值不为`relative`和`static`。
+
+BFC特性很多，而我们这里，只关心一个，和`float`元素做相邻兄弟时候的表现。
+
+如果是上面介绍的流体特性`div`, 当其和浮动元素当兄弟的时候，是覆盖的关系（可以脑补下文字环绕图片效果）。但是，元素BFC化后，本着“里面惊天抱诈（和谐）炸成鬼，外面依然泰然钓大鱼”的原则，自然是不会与浮动重叠的（你想啊，要是出来个`clear:both`还不跟外面浮动干上一架啊），因此，块状相邻，点击下面按钮感受下。
+
+会发现，普通流体元素BFC后，为了和浮动元素不产生任何交集，顺着浮动边缘形成自己的封闭上下文。如下截图：
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-10_003132.png)
+
+同时，**元素原本的流体特性依然保留了**。哈，这个很重要，也就是，虽然不与浮动交集，自动退避浮动元素宽度的距离，但，本身作为普通元素的流动性依然存在，反映在布局上就是自动填满除去浮动内容以外的剩余空间。哟，这不就是自适应布局嘛！！
+
+**2. BFC自适应布局模块间的间距**
+
+然而，模块过于亲密接触，可能不是我们想要的。一般而言，我们需要一点间距。
+
+说到间距，我们的第一反应就是`margin`. 于是，我们给BFC元素增加一个`margin-left:20px`, CSS代码如下：
+
+    .float-left {
+        float: left;
+    }
+    .follow-content {
+        margin-left: 20px;
+        background-color: #cad5eb;
+        overflow: hidden;
     }
 
-nextTick会优先使用**microTask**, 其次是**macroTask** 。
+结果……纳尼~ ![image](https://mat1.gtimg.com/www/mb/images/face/110.gif) 怎么还是像狗屁膏药贴在一起啊？？
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_001810.png)
 
-也就是说nextTick中的任务，实际上会异步执行，**nextTick(callback)**类似于
-**Promise.resolve().then(callback)**，或者**setTimeout(callback, 0)**。
+您可以狠狠地点击这里：[BFC元素增加一个margin无效demo](https://www.zhangxinxu.com/study/201502/flow-to-bfc-margin.html)
 
-也就是说vue的视图更新 **nextTick(flushSchedulerQueue)**等同于**setTimeout(flushSchedulerQueue, 0)**，会异步执行flushSchedulerQueue函数，所以我们在this.msg = hello 并不会立即更新dom。
+实际上，这里的**margin并不是无效，而是值不够大**，鞭长莫及啊！
 
-要想在dom更新后读取dom信息，我们需要在**本次异步任务创建之后创建一个异步任务**。
+![image](https://image.zhangxinxu.com/image/blog/201502/bianchangmoji.jpg)
 
-![image](http://api.fly63.com/vue_blog/public/Uploads/20190812/5d516de2d8656.jpg)
+用一个形象的Gif表示就是下面这样（点击播放-468K）：
+![image](https://image.zhangxinxu.com/image/blog/201910/kick-girl.gif)
 
-为了验证这个想法我们不用nextTick，直接用**setTimeout**实验一下。如下面代码，验证了我们的想法。
+左侧浮动的图片就好比上面Gif图片中男孩的胳膊，妹子就是BFC元素，结果两人紧密接触。然后，`margin-left`就是妹子的胳膊个脚，虽然也甩出去了，可惜长度有限，于是，毫无影响。
 
-    <template><divclass="box">{{msg}}</div></template><script>exportdefault {
-      name: 'index',
-      data () {
-        return {
-          msg: 'hello'
-        }
-      },
-      mounted () {
-        this.msg = 'world'let box = document.getElementsByClassName('box')[0]
-        setTimeout(() => {
-          console.log(box.innerHTML) // world
-        })
-      }
+如果按照上面的解释，那我们把`margin-left:20px`改成`margin-left:150px`就应该有间距了？![image](https://mat1.gtimg.com/www/mb/images/face/32.gif) 一试便知！
+
+    .float-left {
+        float: left;
+    }
+    .follow-content {
+        margin-left: 150px;
+        background-color: #cad5eb;
+        overflow: hidden;
     }
 
-如果我们在数据修改前nextTick ，那么我们添加的异步任务会在渲染的异步任务**之前**执行，拿不到更新后的dom。
+结果，当当当当：
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_003900.png)
 
-    <template><divclass="box">{{msg}}</div></template><script>exportdefault {
-      name: 'index',
-      data () {
-        return {
-          msg: 'hello'
-        }
-      },
-      mounted () {
-        this.$nextTick(() => {
-          console.log(box.innerHTML) // hello
-        })
-        this.msg = 'world'let box = document.getElementsByClassName('box')[0]
-      }
+**注意：**我这里举`margin`这个例子，不是让大家这样使用，只是为了让大家可以深入理解BFC元素与浮动元素混排的特性表现。实际开发，我们完全没有必要对BFC元素设置`margin`, 因为又回到了流体布局，明明是固定的15像素间距，但是，每个布局都要写一个不同的`margin`值，完全没有重用价值。
+
+但是，间距部分的高潮来了！
+
+我们可以使用浮动元素的`margin-right`或者`padding-right`轻松实现间距效果。间距是`20`像素，直接：
+
+    .float-left {
+        float: left;
+        margin-right: 20px;
     }
 
-## 3 总结
+与浮动元素的宽度是多少没有任何关系。不仅如此，我们还可以使用BFC元素的`padding-left`撑开间距（虽然`margin-left`作用鸡肋）。
 
-vue为了保证性能，会把dom修改添加到异步任务，所有同步代码执行完成后再统一修改dom，**一次事件循环中**的多次数据修改只会触发一次watcher.run()。也就是通过nextTick，nextTick会优先使用microTask创建异步任务。vue项目中如果需要获取修改后的dom信息，需要通过nextTick在dom更新任务之后创建一个异步任务。如官网所说，nextTick会在下次 DOM 更新循环结束之后执行延迟回调。
+于是，我们可能就会有：
 
-.tj_box{box-sizing: border-box;margin: 5px auto;width: 100%;border: 1px solid #ddd;border-radius: 5px;padding-bottom: 10px;}.tj_box .tj_tit{background: #FF5E52;display: inline-block;padding: 5px 15px;color:#fff;margin: 10px;margin-top: 0;}.tj_box .tj_li{margin:0 10px;padding: 8px 0; overflow: hidden;border-bottom: 1px dotted #ddd;}.tj_box .tj_li p{font-size: 14px;color:#666;margin: 0;line-height: 20px;}.tj_box .tj_li a{display: inline-block;color:#FF5E52;cursor: pointer;margin-left: 5px;font-weight: bold;}
-站长推荐
+    .l { float: left; }
+    .ovh { overflow: hidden; }
+    
 
-1.阿里云: 本站目前使用的是阿里云主机，安全/可靠/稳定。点击领取2000元代金券、了解最新阿里云产品的各种优惠活动[点击进入](http://www.fly63.com/nav/2907)
+的自适应固定搭配。再配合[zxx.lib.css](https://github.com/zhangxinxu/zxx.lib.css)CSS样式库的`margin`和`padding`家族，快速布局可谓所向披靡。
 
-2.腾讯云: 提供云服务器、云数据库、云存储、视频与CDN、域名等服务。腾讯云各类产品的最新活动，优惠券领取[点击进入](http://www.fly63.com/nav/2908)
+**3. 与纯流体特性布局的优势**
 
-3.广告联盟: 整理了目前主流的广告联盟平台，如果你有流量，可以作为参考选择适合你的平台[点击进入](http://www.fly63.com/article/detial/1460)
+BFC自适应布局优势我总结了下面2点：
 
-链接: [http://www.fly63.com/article/detial/4657](http://www.fly63.com/article/detial/4657)
+1. 自适应内容由于封闭，更健壮，容错性强。比方说，内部`clear:both`不会与兄弟`float`产生矛盾。而纯流体布局，`clear:both`会让后面内容无法和`float`元素在一个水平上，产生布局问题。
+2. 自适应内容自动填满浮动以为区域，无需关心浮动元素宽度，可以整站大规模应用。而纯流体布局，需要大小不确定的`margin`/`padding`等值撑开合适间距，无法CSS组件化。
+
+如下效果，图片能大能小，布局依然良好：
+
+而CSS代码就是非常简单的：
+
+    .float-left {
+        float: left; margin-right: 20px; 
+    }
+    .bfc-content {
+        overflow: hidden; background-color: #beceeb;
+    }
+
+可以说，有了BFC自适应布局，基本上没有了纯流体特性布局存在的价值。然而，只是理论上如此。如果，BFC自适应布局真那么吊炸天，那为何并没有口口相传呢？
+
+那我们就得进一步深入理解了。
+
+**4. BFC元素家族与自适应布局面面观**
+
+理论上，任何BFC元素和浮动搞基的时候，都可以实现自动填充的自适应布局。
+
+但是，由于绝大多数的触发BFC的属性自身有一些古怪的特性，所以，实际操作的时候，能兼顾流体特性和BFC特性来实现无敌自适应布局的属性并不多。下面我们牵驴遛马一个一个瞅瞅（类似行为仅出1个代表示意，你懂的，如`float:left/right`）：
+
+1. **float:left** 浮动元素本身BFC化，然而浮动元素有破坏性和包裹性，失去了元素本身的流体自适应性，因此，无法用来实现自动填满容器的自适应布局。不过，其因兼容性还算良好，与堆积木这种现实认知匹配，上手简单，因此在旧时代被大肆使用，也就是常说的“浮动布局”，也算阴差阳错开创了自己的一套布局。
+2. **position:absolute** 这个脱离文档流有些严重，过于清高，不跟普通小伙伴玩耍，我就不说什么了……
+3. **overflow:hidden** 这个超棒的哦！不像浮动和绝对定位，玩得有点过。也就是溢出剪裁什么的，本身还是个很普通的元素。因此，块状元素的流体特性保存相当完好，附上BFC的独立区域特性，可谓如虎添翼，宇宙无敌！哈无诶瓦(However), 就跟清除浮动：
+
+    .clearfix { overflow: hidden; _zoom: 1; }
+
+一样。由于很多场景我们是不能`overflow:hidden`的，因此，无法作为一个通用CSS类整站大规模使用。因此，`float+overflow`的自适应布局，我们可以在局部（你确定不会有什么被剪裁的情况下）很happy地使用。
+
+4. **display:inline-block** CSS届最伟大的声明之一，但是，在这里，就有些捉襟见肘了。`display:inline-block`会让元素尺寸包裹收缩，完全就不是我们想要的`block`水平的流动特性。唉，只能是一声叹气一枪毙掉的命！然而，峰回路转，世事难料。大家应该知道，IE6/IE7浏览器下，`block`水平的元素设置`display:inline-block`元素还是`block`水平，也就是还是会自适应容器的可用宽度显示。于是，我们就阴差阳错得到一个比`overflow:hidden`更牛逼的声明，即BFC特性加身，又流体特性保留。
+
+    .float-left {
+        float: left;
+    }
+    .bfc-content {
+        display: inline-block;
+    }
+
+当然，`*zoom: 1`也是类似效果，不过只适用于低级的IE浏览器，如IE7~
+
+5. **display:table-cell** 让元素表现得像单元格一样，IE8+以上浏览器才支持。跟`display:inline-block`一样，会跟随内部元素的宽度显示，看样子也是不合适的命。但是，单元格有个非常神奇的特性，就是你宽度值设置地再大，大到西伯利亚，实际宽度也不会超过表格容器的宽度。
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_224124.png)
+因此，如果我们把`display:table-cell`这个BFC元素宽度设置很大，比方说3000像素。那其实就跟`block`水平元素自动适应容器空间效果一模一样了。除非你的容器宽度超过3000像素，实际上，一般web页面不会有3000像素宽的模块的。所以，要是你实在不放心，设个`9999`像素值好了！
+
+    .float-left {
+        float: left;
+    }
+    .bfc-content {
+        display: table-cell; width: 9999px;
+    }
+
+看上去，好像还不错。但是，还是有两点制约，一是IE8+以上浏览器兼容，有些苦逼的团队还要管IE6；二是应付连续英文字符换行有些吃力（可以嵌套`table-layout:fixed`解决）。但是，总体来看，适用的场景要比`overflow:hidden`广博很多。
+
+6. **display:table-row** 对`width`无感，无法自适应剩余容器空间。
+7. **display:table-caption** 一无是处……还有其他声明也都是一无是处，我就不全部展开了……
+
+**总结：**我们对BFC声明家族大致过了一遍，能担任自适应布局重任的也就是：
+
+1. `overflow:auto/hidden` IE7+
+2. `display:inline-block`  IE6/IE7
+3. `display:table-cell`   IE8+
+
+由于overflow有剪裁和出现滚动条等隐患，不适合作为整站通用类，于是，最后，类似清除浮动的通用类语句：
+
+    .clearfix {
+        *zoom: 1;
+    }
+    .clearfix:after {
+        content: ''; display: table; clear: both;
+    }
+
+两栏或多栏自适应布局的通用类语句是（`block`水平标签，需配合浮动）：
+
+    .cell {
+        display: table-cell; width: 9999px;
+        *display: inline-block; *width: auto;
+    }
+    
+
+这就是[zxx.lib.css](https://github.com/zhangxinxu/zxx.lib.css)CSS样式库中`.cell`的由来！
+
+当然，由于和浮动元素合作，清除浮动还是要的，于是，就有了`.fix` + `.l/.r` + `.cell`的无敌组合，可以多栏，也可以无限嵌套。
+
+如果是局部，且确认安全；或有连续英文字符换行的隐患，你也可以使用`.fix` + `.l/.r` + `.ovh`的无敌组合，可以多栏，也可以无限嵌套。
+
+### 四、结束之言
+
+估计本文是春节前的最后一篇文章了，小生在这里提前祝大家「羊年快乐」「万事如意」「事业蒸蒸日上」！
+
+另，本文内容非权威，多个人理解与感悟，仅供参考。欢迎交流，提出您的真知灼见！
+
+感谢阅读！![image](https://mat1.gtimg.com/www/mb/images/face/14.gif)
+
+本文为原创文章，会经常更新知识点以及修正一些错误，因此转载请保留原出处，方便溯源，避免陈旧错误知识的误导，同时有更好的阅读体验。
+
+本文地址：[https://www.zhangxinxu.com/wordpress/?p=4588](https://www.zhangxinxu.com/wordpress/?p=4588)
+
+（本篇完）// 文章不错，我要[分享到微信](javascript:)！有话要说？点击[这里](#comment)。
+
+« [图片动态局部毛玻璃模糊效果的实现](https://www.zhangxinxu.com/wordpress/2015/02/image-local-blur-background-attachment-fixed/)
+
+[小tip: IE下zoom或Matrix矩阵滤镜中心点变换实现](https://www.zhangxinxu.com/wordpress/2015/02/ie-zoom-transform-filter/) »
+
+猜你喜欢
+
+- [快速了解CSS display:flow-root声明](https://www.zhangxinxu.com/wordpress/2020/05/css-display-flow-root/)(0.305)
+- [CSS百分比padding实现比例固定图片自适应布局](https://www.zhangxinxu.com/wordpress/2017/08/css-percent-padding-image-layout/)(0.218)
+- [display:table-cell自适应布局下连续单词字符换行](https://www.zhangxinxu.com/wordpress/2012/01/display-table-cell-display-table-layout-fixed-word-wrap-break-word/)(0.145)
+- [border-collapse与table td边框opacity透明度诡异解析](https://www.zhangxinxu.com/wordpress/2015/03/border-collapse-table-td-border-opacity/)(0.145)
+- [我所知道的几种display:table-cell的应用](https://www.zhangxinxu.com/wordpress/2010/10/%e6%88%91%e6%89%80%e7%9f%a5%e9%81%93%e7%9a%84%e5%87%a0%e7%a7%8ddisplaytable-cell%e7%9a%84%e5%ba%94%e7%94%a8/)(0.135)
+- [display:inline-block/text-align:justify下列表的两端对齐布局](https://www.zhangxinxu.com/wordpress/2011/03/displayinline-blocktext-alignjustify%e4%b8%8b%e5%88%97%e8%a1%a8%e7%9a%84%e4%b8%a4%e7%ab%af%e5%af%b9%e9%bd%90%e5%b8%83%e5%b1%80/)(0.135)
+- [CSS样式分离之再分离](https://www.zhangxinxu.com/wordpress/2010/07/css%e6%a0%b7%e5%bc%8f%e5%88%86%e7%a6%bb%e4%b9%8b%e5%86%8d%e5%88%86%e7%a6%bb/)(0.126)
+- [大小不固定的图片、多行文字的水平垂直居中](https://www.zhangxinxu.com/wordpress/2009/08/%e5%a4%a7%e5%b0%8f%e4%b8%8d%e5%9b%ba%e5%ae%9a%e7%9a%84%e5%9b%be%e7%89%87%e3%80%81%e5%a4%9a%e8%a1%8c%e6%96%87%e5%ad%97%e7%9a%84%e6%b0%b4%e5%b9%b3%e5%9e%82%e7%9b%b4%e5%b1%85%e4%b8%ad/)(0.118)
+- [对overflow与zoom"清除浮动"的一些认识](https://www.zhangxinxu.com/wordpress/2010/01/%e5%af%b9overflow%e4%b8%8ezoom%e6%b8%85%e9%99%a4%e6%b5%ae%e5%8a%a8%e7%9a%84%e4%b8%80%e4%ba%9b%e8%ae%a4%e8%af%86/)(0.118)
+- [理解CSS3 max/min-content及fit-content等width值](https://www.zhangxinxu.com/wordpress/2016/05/css3-width-max-contnet-min-content-fit-content/)(0.118)
+- [letter-spacing+first-letter实现按钮文字隐藏](https://www.zhangxinxu.com/wordpress/2013/07/letter-spacing-first-letter-%e6%8c%89%e9%92%ae%e6%96%87%e5%ad%97%e9%9a%90%e8%97%8f/)(RANDOM - 0.031)
+
+分享到：[//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153](//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153)[/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20](/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20)
+
+标签： [BFC](https://www.zhangxinxu.com/wordpress/tag/bfc/), [display:inline-block](https://www.zhangxinxu.com/wordpress/tag/displayinline-block/), [display:table-cell](https://www.zhangxinxu.com/wordpress/tag/displaytable-cell/), [inline-block](https://www.zhangxinxu.com/wordpress/tag/inline-block/), [overflow:hidden](https://www.zhangxinxu.com/wordpress/tag/overflowhidden/), [table-cell](https://www.zhangxinxu.com/wordpress/tag/table-cell/), [布局](https://www.zhangxinxu.com/wordpress/tag/%e5%b8%83%e5%b1%80/), [流动性布局](https://www.zhangxinxu.com/wordpress/tag/%e6%b5%81%e5%8a%a8%e6%80%a7%e5%b8%83%e5%b1%80/), [自适应布局](https://www.zhangxinxu.com/wordpress/tag/%e8%87%aa%e9%80%82%e5%ba%94%e5%b8%83%e5%b1%80/)
