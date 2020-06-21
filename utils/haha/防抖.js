@@ -1,11 +1,14 @@
-let debounce =  (fn, wait = 200, imediate = true) => {
+let debounce =  (fn, wait = 200, immediate = true) => {
     let timer = null
+    let args = []
+    let canRun = immediate
 
     return function () {
         let context = this
-        let args = [...arguments]
+        args = [...arguments]
 
-        if (imediate && !timer) {
+        if (canRun) {
+            canRun = false
             fn.apply(context, args)
         }
 
@@ -16,8 +19,3 @@ let debounce =  (fn, wait = 200, imediate = true) => {
         }, wait);
     }
 }
-
-
-
-
-
