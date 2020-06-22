@@ -98,6 +98,11 @@ export default new Router({
         path: "/fluid-drag",
         name: "fluid-drag",
         component: () => import("./views/fluid-drag/fluid-drag")
+    },
+    {
+        path: "/test-pubuliu",
+        name: "test-pubuliu",
+        component: () => import("./views/test-pubuliu/test-pubuliu")
     }
   ]
 });
