@@ -1,477 +1,286 @@
-## 前言
+## CSS深入理解流体特性和BFC特性下多栏自适应布局
 
-前后端数据交互经常会碰到请求跨域，什么是跨域，以及有哪几种跨域方式，这是本文要探讨的内容。
+这篇文章发布于 2015年02月12日，星期四，23:36，归类于 [CSS相关](https://www.zhangxinxu.com/wordpress/category/css/)。                        阅读 149581 次, 今日 13 次                        [59 条评论](#comments)
 
-**本文完整的源代码请猛戳[github博客](https://github.com/ljianshu/Blog)，纸上得来终觉浅，建议动手敲敲代码**
+ 
 
-## 一、什么是跨域？
+[2020年阿里最新面试题汇总免费领取](http://www.mawen.co/?utm_source=zxx-web-2020)
 
-### 1.什么是同源策略及其限制内容？
+### 一、开篇之言
 
-同源策略是一种约定，它是浏览器最核心也最基本的安全功能，如果缺少了同源策略，浏览器很容易受到XSS、CSRF等攻击。所谓同源是指"协议+域名+端口"三者相同，即便两个不同的域名指向同一个ip地址，也非同源。
-![image](https://segmentfault.com//img/remote/1460000016756435?w=872&amp;h=208)
-**同源策略限制内容有：**
+要说web上实现两栏自适应布局的方法，一双手都数不过来。不知大家有没有细想过，为什么这些方法可以实现自适应布局呢？![image](https://mat1.gtimg.com/www/mb/images/face/32.gif)
 
-- Cookie、LocalStorage、IndexedDB 等存储性内容
-- DOM 节点
-- AJAX 请求发送后，结果被浏览器拦截了
+本文就将深入探讨下流体特性和BFC特性下的两栏自适应布局，还是针对传统布局。一些现代布局，如弹性盒子模型布局(Flexbox Layout)，格栅布局(Grid Layout)不在本文探讨之类。
 
-但是有三个标签是允许跨域加载资源：
+> 有些人看了个标题，以及看了前面一两段，发现，都是我知道的概念嘛，什么流动性，什么BFC~~于是，就悻悻离开了。这就是我们常说的浮躁，保持一颗谦逊的心，细细阅读，你会发现，其中一定有你所没有关注过的地方，所谓三人行必有我师。没错，这句话就是写给你看的，同时也是自我内省与监督。
 
-- `<img src=XXX>`
-- `<link href=XXX>`
-- `<script src=XXX>`
+### 二、块状元素的流体特性与自适应布局
 
-### 2.常见跨域场景
+**流体特性**
 
-**当协议、子域名、主域名、端口号中任意一个不相同时，都算作不同域**。不同域之间相互请求资源，就算作“跨域”。常见跨域场景如下图所示：
-![image](https://segmentfault.com//img/remote/1460000016756436?w=827&amp;h=819)
+块状水平元素，如`div`元素（下同），在默认情况下（非浮动、绝对定位等），水平方向会自动填满外部的容器；如果有`margin-left/margin-right`, `padding-left/padding-right`, `border-left-width/border-right-width`等，实际内容区域会响应变窄。
 
-特别说明两点：
+一图胜千言，一例胜千图。可参考下面例子，感受下`div`元素的流体特性：
 
-**第一：如果是协议和端口造成的跨域问题“前台”是无能为力的。**
+图片宽度一直`width:100%`，依次点击3个按钮，结果随着`margin`, `padding`, `border`的出现，其可用宽度自动跟着减小，形成了自适应效果。就像放在容器中的水流一样，内容区域会随着`margin`, `padding`, `border`的出现自动填满剩余空间，这就是块状元素的流体特性。
 
-**第二：在跨域问题上，仅仅是通过“URL的首部”来识别而不会根据域名对应的IP地址是否相同来判断。“URL的首部”可以理解为“协议, 域名和端口必须匹配”**。
+**流体特性**
 
-这里你或许有个疑问：**请求跨域了，那么请求到底发出去没有？**
+下面，我们稍微做一个调整，`div`距离容器左侧`margin``150`像素，里面的图片同样`100%`自适应内容区域。HTML如下：
 
-**跨域并不是请求发不出去，请求能发出去，服务端能收到请求并正常返回结果，只是结果被浏览器拦截了**。你可能会疑问明明通过表单的方式可以发起跨域请求，为什么 Ajax 就不会?因为归根结底，跨域是为了阻止用户读取到另一个域名下的内容，Ajax 可以获取响应，浏览器认为这不安全，所以拦截了响应。但是表单并不会获取新的内容，所以可以发起跨域请求。同时也说明了跨域并不能完全阻止 CSRF，因为请求毕竟是发出去了。
-
-## 二、跨域解决方案
-
-### 1.jsonp
-
-#### 1) JSONP原理
-
-**利用 `<script>` 标签没有跨域限制的漏洞，网页可以得到从其他来源动态产生的 JSON 数据。JSONP请求一定需要对方的服务器做支持才可以。**
-
-#### 2) JSONP和AJAX对比
-
-JSONP和AJAX相同，都是客户端向服务器端发送请求，从服务器端获取数据的方式。但AJAX属于同源策略，JSONP属于非同源策略（跨域请求）
-
-#### 3) JSONP优缺点
-
-JSONP优点是简单兼容性好，可用于解决主流浏览器的跨域数据访问的问题。**缺点是仅支持get方法具有局限性,不安全可能会遭受XSS攻击。**
-
-#### 4) JSONP的实现流程
-
-- 声明一个回调函数，其函数名(如show)当做参数值，要传递给跨域请求数据的服务器，函数形参为要获取目标数据(服务器返回的data)。
-- 创建一个`<script>`标签，把那个跨域的API数据接口地址，赋值给script的src,还要在这个地址中向服务器传递该函数名（可以通过问号传参:?callback=show）。
-- 服务器接收到请求后，需要进行特殊的处理：把传递进来的函数名和它需要给你的数据拼接成一个字符串,例如：传递进去的函数名是show，它准备好的数据是`show('我不爱你')`。
-- 最后服务器把准备的数据通过HTTP协议返回给客户端，客户端再调用执行之前声明的回调函数（show），对返回的数据进行操作。
-
-在开发中可能会遇到多个 JSONP 请求的回调函数名是相同的，这时候就需要自己封装一个 JSONP函数。
-
-    // index.htmlfunctionjsonp({ url, params, callback }) {
-      returnnewPromise((resolve, reject) => {
-        let script = document.createElement('script')
-        window[callback] = function(data) {
-          resolve(data)
-          document.body.removeChild(script)
-        }
-        params = { ...params, callback } // wd=b&callback=showlet arrs = []
-        for (let key in params) {
-          arrs.push(`${key}=${params[key]}`)
-        }
-        script.src = `${url}?${arrs.join('&')}`document.body.appendChild(script)
-      })
+    .flow-box {
+        width: 500px; background-color: #eee; overflow:auto; resize:horizontal;
     }
-    jsonp({
-      url: 'http://localhost:3000/say',
-      params: { wd: 'Iloveyou' },
-      callback: 'show'
-    }).then(data => {
-      console.log(data)
-    })
-
-上面这段代码相当于向`http://localhost:3000/say?wd=Iloveyou&callback=show`这个地址请求数据，然后后台返回`show('我不爱你')`，最后会运行show()这个函数，打印出'我不爱你'
-
-    // server.jslet express = require('express')
-    let app = express()
-    app.get('/say', function(req, res) {
-      let { wd, callback } = req.query
-      console.log(wd) // Iloveyouconsole.log(callback) // show
-      res.end(`${callback}('我不爱你')`)
-    })
-    app.listen(3000)
-
-#### 5) jQuery的jsonp形式
-
-**JSONP都是GET和异步请求的，不存在其他的请求方式和同步请求，且jQuery默认就会给JSONP的请求清除缓存。**
-
-    $.ajax({
-    url:"http://crossdomain.com/jsonServerResponse",
-    dataType:"jsonp",
-    type:"get",//可以省略jsonpCallback:"show",//->自定义传递给服务器的函数名，而不是使用jQuery自动生成的，可省略jsonp:"callback",//->把传递函数名的那个形参callback，可省略success:function (data){
-    console.log(data);}
-    });
-
-### 2.cors
-
-**CORS 需要浏览器和后端同时支持。IE 8 和 9 需要通过 XDomainRequest 来实现**。
-
-浏览器会自动进行 CORS 通信，实现 CORS 通信的关键是后端。只要后端实现了 CORS，就实现了跨域。
-
-服务端设置 Access-Control-Allow-Origin 就可以开启 CORS。 该属性表示哪些域名可以访问资源，如果设置通配符则表示所有网站都可以访问资源。
-
-虽然设置 CORS 和前端没什么关系，但是通过这种方式解决跨域问题的话，会在发送请求时出现两种情况，分别为**简单请求**和**复杂请求**。
-
-#### 1) 简单请求
-
-只要同时满足以下两大条件，就属于简单请求
-
-条件1：使用下列方法之一：
-
-- GET
-- HEAD
-- POST
-
-条件2：Content-Type 的值仅限于下列三者之一：
-
-- text/plain
-- multipart/form-data
-- application/x-www-form-urlencoded
-
-请求中的任意 XMLHttpRequestUpload 对象均没有注册任何事件监听器； XMLHttpRequestUpload 对象可以使用 XMLHttpRequest.upload 属性访问。
-
-#### 2) 复杂请求
-
-不符合以上条件的请求就肯定是复杂请求了。
-复杂请求的CORS请求，会在正式通信之前，增加一次HTTP查询请求，称为"预检"请求,该请求是 option 方法的，通过该请求来知道服务端是否允许跨域请求。
-
-我们用`PUT`向后台请求时，属于复杂请求，后台需做如下配置：
-
-    // 允许哪个方法访问我res.setHeader('Access-Control-Allow-Methods', 'PUT')
-    // 预检的存活时间res.setHeader('Access-Control-Max-Age', 6)
-    // OPTIONS请求不做任何处理if (req.method === 'OPTIONS') {
-      res.end() 
+    .flow-content {
+        margin-left: 150px;
     }
-    // 定义后台返回的内容app.put('/getData', function(req, res) {
-      console.log(req.headers)
-      res.end('我不爱你')
-    })
+    
 
-接下来我们看下一个完整复杂请求的例子，并且介绍下CORS请求相关的字段
+    <div class="flow-box">
+        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
+    </div>
+    
 
-    // index.htmllet xhr = new XMLHttpRequest()
-    document.cookie = 'name=xiamen'// cookie不能跨域
-    xhr.withCredentials = true// 前端设置是否带cookie
-    xhr.open('PUT', 'http://localhost:4000/getData', true)
-    xhr.setRequestHeader('name', 'xiamen')
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) {
-        if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 304) {
-          console.log(xhr.response)
-          //得到响应头，后台需设置Access-Control-Expose-Headersconsole.log(xhr.getResponseHeader('name'))
-        }
-      }
+图片右下角有两道斜杠，我们可以resize拉伸（现代浏览器，且非移动访问），会发现，左侧永远150像素留白，而图片随着容器宽度变化而自适应变化了。
+
+此时，我们需要好好利用左侧150像素的留白间距，岂不是就可以实现两栏自适应效果！？
+
+为了不影响原本的流体特性，我们可以使用破坏性属性，如浮动(float:left)，或者绝对定位(position:absolute)。
+
+我们直接HTML如下调整即可：
+
+    <div class="flow-box">
+        <img src="mm1.jpg" width="128" style="float:left;">
+        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
+    </div>
+    
+
+    <div class="flow-box">
+        <img src="mm1.jpg" width="128" style="position:absolute;">
+        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
+    </div>
+    
+
+结果分别如下：
+
+当然，你可以左侧有多个浮动，或者左浮动+右浮动。于是，我们不仅可以实现两栏自适应效果，多栏自适应效果也不在话下。
+
+然而，利用块状元素流体特性实现的自适应布局有个不足，就是，我们需要知道浮动或绝对定位内容的尺寸。然后，流体内容才能有对应的`margin`或`padding`或`border`值进行位置修正。于是，问题来了，我们没法单纯使用一个公用的类名，类似`.clearfix`这样，整站通用。因为不同自适应场景的留白距离是不一样的。
+
+此时，我们可以利用块状元素的BFC特定实现更强大更智能的多栏自适应布局（本文重点）。
+
+### 三、元素的BFC特性与自适应布局
+
+**1. BFC元素简介与基本表现**
+
+BFC全称”Block Formatting Context”, 中文为“块级格式化上下文”。啪啦啪啦特性什么的，一言难尽，大家可以自行去查找，我这里不详述，免得乱了主次，总之，记住这么一句话：BFC元素特性表现原则就是，内部子元素再怎么翻江倒海，翻云覆雨都不会影响外部的元素。所以，避免margin穿透啊，清除浮动什么的也好理解了。
+
+![image](https://image.zhangxinxu.com/image/blog/201502/inner-outer.png)
+
+什么时候会触发BFC呢？常见的如下：
+
+- `float`的值不为`none`。
+- `overflow`的值为`auto`,`scroll`或`hidden`。
+- `display`的值为`table-cell`, `table-caption`, `inline-block`中的任何一个。
+- `position`的值不为`relative`和`static`。
+
+BFC特性很多，而我们这里，只关心一个，和`float`元素做相邻兄弟时候的表现。
+
+如果是上面介绍的流体特性`div`, 当其和浮动元素当兄弟的时候，是覆盖的关系（可以脑补下文字环绕图片效果）。但是，元素BFC化后，本着“里面惊天抱诈（和谐）炸成鬼，外面依然泰然钓大鱼”的原则，自然是不会与浮动重叠的（你想啊，要是出来个`clear:both`还不跟外面浮动干上一架啊），因此，块状相邻，点击下面按钮感受下。
+
+会发现，普通流体元素BFC后，为了和浮动元素不产生任何交集，顺着浮动边缘形成自己的封闭上下文。如下截图：
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-10_003132.png)
+
+同时，**元素原本的流体特性依然保留了**。哈，这个很重要，也就是，虽然不与浮动交集，自动退避浮动元素宽度的距离，但，本身作为普通元素的流动性依然存在，反映在布局上就是自动填满除去浮动内容以外的剩余空间。哟，这不就是自适应布局嘛！！
+
+**2. BFC自适应布局模块间的间距**
+
+然而，模块过于亲密接触，可能不是我们想要的。一般而言，我们需要一点间距。
+
+说到间距，我们的第一反应就是`margin`. 于是，我们给BFC元素增加一个`margin-left:20px`, CSS代码如下：
+
+    .float-left {
+        float: left;
     }
-    xhr.send()
+    .follow-content {
+        margin-left: 20px;
+        background-color: #cad5eb;
+        overflow: hidden;
+    }
 
-    //server1.jslet express = require('express');
-    let app = express();
-    app.use(express.static(__dirname));
-    app.listen(3000);
+结果……纳尼~ ![image](https://mat1.gtimg.com/www/mb/images/face/110.gif) 怎么还是像狗屁膏药贴在一起啊？？
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_001810.png)
 
-    //server2.jslet express = require('express')
-    let app = express()
-    let whitList = ['http://localhost:3000'] //设置白名单
-    app.use(function(req, res, next) {
-      let origin = req.headers.origin
-      if (whitList.includes(origin)) {
-        // 设置哪个源可以访问我
-        res.setHeader('Access-Control-Allow-Origin', origin)
-        // 允许携带哪个头访问我
-        res.setHeader('Access-Control-Allow-Headers', 'name')
-        // 允许哪个方法访问我
-        res.setHeader('Access-Control-Allow-Methods', 'PUT')
-        // 允许携带cookie
-        res.setHeader('Access-Control-Allow-Credentials', true)
-        // 预检的存活时间
-        res.setHeader('Access-Control-Max-Age', 6)
-        // 允许返回的头
-        res.setHeader('Access-Control-Expose-Headers', 'name')
-        if (req.method === 'OPTIONS') {
-          res.end() // OPTIONS请求不做任何处理
-        }
-      }
-      next()
-    })
-    app.put('/getData', function(req, res) {
-      console.log(req.headers)
-      res.setHeader('name', 'jw') //返回一个响应头，后台需设置
-      res.end('我不爱你')
-    })
-    app.get('/getData', function(req, res) {
-      console.log(req.headers)
-      res.end('我不爱你')
-    })
-    app.use(express.static(__dirname))
-    app.listen(4000)
+您可以狠狠地点击这里：[BFC元素增加一个margin无效demo](https://www.zhangxinxu.com/study/201502/flow-to-bfc-margin.html)
 
-上述代码由`http://localhost:3000/index.html`向`http://localhost:4000/`跨域请求，正如我们上面所说的，后端是实现 CORS 通信的关键。
+实际上，这里的**margin并不是无效，而是值不够大**，鞭长莫及啊！
 
-### 3.postMessage
+![image](https://image.zhangxinxu.com/image/blog/201502/bianchangmoji.jpg)
 
-postMessage是HTML5 XMLHttpRequest Level 2中的API，且是为数不多可以跨域操作的window属性之一，它可用于解决以下方面的问题：
+用一个形象的Gif表示就是下面这样（点击播放-468K）：
+![image](https://image.zhangxinxu.com/image/blog/201910/kick-girl.gif)
 
-- 页面和其打开的新窗口的数据传递
-- 多窗口之间消息传递
-- 页面与嵌套的iframe消息传递
-- 上面三个场景的跨域数据传递
+左侧浮动的图片就好比上面Gif图片中男孩的胳膊，妹子就是BFC元素，结果两人紧密接触。然后，`margin-left`就是妹子的胳膊个脚，虽然也甩出去了，可惜长度有限，于是，毫无影响。
 
-**postMessage()方法允许来自不同源的脚本采用异步方式进行有限的通信，可以实现跨文本档、多窗口、跨域消息传递**。
+如果按照上面的解释，那我们把`margin-left:20px`改成`margin-left:150px`就应该有间距了？![image](https://mat1.gtimg.com/www/mb/images/face/32.gif) 一试便知！
 
-> otherWindow.postMessage(message, targetOrigin, [transfer]);
+    .float-left {
+        float: left;
+    }
+    .follow-content {
+        margin-left: 150px;
+        background-color: #cad5eb;
+        overflow: hidden;
+    }
 
-- message: 将要发送到其他 window的数据。
-- targetOrigin:通过窗口的origin属性来指定哪些窗口能接收到消息事件，其值可以是字符串"*"（表示无限制）或者一个URI。在发送消息的时候，如果目标窗口的协议、主机地址或端口这三者的任意一项不匹配targetOrigin提供的值，那么消息就不会被发送；只有三者完全匹配，消息才会被发送。
-- transfer(可选)：是一串和message 同时传递的 Transferable 对象. 这些对象的所有权将被转移给消息的接收方，而发送一方将不再保有所有权。
+结果，当当当当：
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_003900.png)
 
-接下来我们看个例子： `http://localhost:3000/a.html`页面向`http://localhost:4000/b.html`传递“我爱你”,然后后者传回"我不爱你"。
+**注意：**我这里举`margin`这个例子，不是让大家这样使用，只是为了让大家可以深入理解BFC元素与浮动元素混排的特性表现。实际开发，我们完全没有必要对BFC元素设置`margin`, 因为又回到了流体布局，明明是固定的15像素间距，但是，每个布局都要写一个不同的`margin`值，完全没有重用价值。
 
-    // a.html
-      <iframesrc="http://localhost:4000/b.html"frameborder="0"id="frame"onload="load()"></iframe> //等它加载完触发一个事件
-      //内嵌在http://localhost:3000/a.html
-        <script>functionload() {
-            let frame = document.getElementById('frame')
-            frame.contentWindow.postMessage('我爱你', 'http://localhost:4000') //发送数据window.onmessage = function(e) { //接受返回数据console.log(e.data) //我不爱你
-            }
-          }
-        </script>
+但是，间距部分的高潮来了！
 
-    // b.htmlwindow.onmessage = function(e) {
-        console.log(e.data) //我爱你
-        e.source.postMessage('我不爱你', e.origin)
-     }
+我们可以使用浮动元素的`margin-right`或者`padding-right`轻松实现间距效果。间距是`20`像素，直接：
 
-### 4.websocket
+    .float-left {
+        float: left;
+        margin-right: 20px;
+    }
 
-Websocket是HTML5的一个持久化的协议，它实现了浏览器与服务器的全双工通信，同时也是跨域的一种解决方案。WebSocket和HTTP都是应用层协议，都基于 TCP 协议。但是 **WebSocket 是一种双向通信协议，在建立连接之后，WebSocket 的 server 与 client 都能主动向对方发送或接收数据**。同时，WebSocket 在建立连接时需要借助 HTTP 协议，连接建立好了之后 client 与 server 之间的双向通信就与 HTTP 无关了。
+与浮动元素的宽度是多少没有任何关系。不仅如此，我们还可以使用BFC元素的`padding-left`撑开间距（虽然`margin-left`作用鸡肋）。
 
-原生WebSocket API使用起来不太方便，我们使用`Socket.io`，它很好地封装了webSocket接口，提供了更简单、灵活的接口，也对不支持webSocket的浏览器提供了向下兼容。
+于是，我们可能就会有：
 
-我们先来看个例子：本地文件socket.html向`localhost:3000`发生数据和接受数据
+    .l { float: left; }
+    .ovh { overflow: hidden; }
+    
 
-    // socket.html
-    <script>let socket = new WebSocket('ws://localhost:3000');
-        socket.onopen = function () {
-          socket.send('我爱你');//向服务器发送数据
-        }
-        socket.onmessage = function (e) {
-          console.log(e.data);//接收服务器返回的数据
-        }
-    </script>
+的自适应固定搭配。再配合[zxx.lib.css](https://github.com/zhangxinxu/zxx.lib.css)CSS样式库的`margin`和`padding`家族，快速布局可谓所向披靡。
 
-    // server.jslet express = require('express');
-    let app = express();
-    let WebSocket = require('ws');//记得安装wslet wss = new WebSocket.Server({port:3000});
-    wss.on('connection',function(ws) {
-      ws.on('message', function (data) {
-        console.log(data);
-        ws.send('我不爱你')
-      });
-    })
+**3. 与纯流体特性布局的优势**
 
-### 5. Node中间件代理(两次跨域)
+BFC自适应布局优势我总结了下面2点：
 
-实现原理：**同源策略是浏览器需要遵循的标准，而如果是服务器向服务器请求就无需遵循同源策略。**
-代理服务器，需要做以下几个步骤：
+1. 自适应内容由于封闭，更健壮，容错性强。比方说，内部`clear:both`不会与兄弟`float`产生矛盾。而纯流体布局，`clear:both`会让后面内容无法和`float`元素在一个水平上，产生布局问题。
+2. 自适应内容自动填满浮动以为区域，无需关心浮动元素宽度，可以整站大规模应用。而纯流体布局，需要大小不确定的`margin`/`padding`等值撑开合适间距，无法CSS组件化。
 
-- 接受客户端请求 。
-- 将请求 转发给服务器。
-- 拿到服务器 响应 数据。
-- 将 响应 转发给客户端。
+如下效果，图片能大能小，布局依然良好：
 
-![image](https://segmentfault.com//img/remote/1460000018017121?w=600&amp;h=237)
+而CSS代码就是非常简单的：
 
-我们先来看个例子：本地文件index.html文件，通过代理服务器`http://localhost:3000`向目标服务器`http://localhost:4000`请求数据。
+    .float-left {
+        float: left; margin-right: 20px; 
+    }
+    .bfc-content {
+        overflow: hidden; background-color: #beceeb;
+    }
 
-    // index.html(http://127.0.0.1:5500)
-     <scriptsrc="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script><script>
-          $.ajax({
-            url: 'http://localhost:3000',
-            type: 'post',
-            data: { name: 'xiamen', password: '123456' },
-            contentType: 'application/json;charset=utf-8',
-            success: function(result) {
-              console.log(result) // {"title":"fontend","password":"123456"}
-            },
-            error: function(msg) {
-              console.log(msg)
-            }
-          })
-         </script>
+可以说，有了BFC自适应布局，基本上没有了纯流体特性布局存在的价值。然而，只是理论上如此。如果，BFC自适应布局真那么吊炸天，那为何并没有口口相传呢？
 
-    // server1.js 代理服务器(http://localhost:3000)const http = require('http')
-    // 第一步：接受客户端请求const server = http.createServer((request, response) => {
-      // 代理服务器，直接和浏览器直接交互，需要设置CORS 的首部字段
-      response.writeHead(200, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      })
-      // 第二步：将请求转发给服务器const proxyRequest = http
-        .request(
-          {
-            host: '127.0.0.1',
-            port: 4000,
-            url: '/',
-            method: request.method,
-            headers: request.headers
-          },
-          serverResponse => {
-            // 第三步：收到服务器的响应var body = ''
-            serverResponse.on('data', chunk => {
-              body += chunk
-            })
-            serverResponse.on('end', () => {
-              console.log('The data is ' + body)
-              // 第四步：将响应结果转发给浏览器
-              response.end(body)
-            })
-          }
-        )
-        .end()
-    })
-    server.listen(3000, () => {
-      console.log('The proxyServer is running at http://localhost:3000')
-    })
+那我们就得进一步深入理解了。
 
-    // server2.js(http://localhost:4000)const http = require('http')
-    const data = { title: 'fontend', password: '123456' }
-    const server = http.createServer((request, response) => {
-      if (request.url === '/') {
-        response.end(JSON.stringify(data))
-      }
-    })
-    server.listen(4000, () => {
-      console.log('The server is running at http://localhost:4000')
-    })
+**4. BFC元素家族与自适应布局面面观**
 
-上述代码经过两次跨域，值得注意的是浏览器向代理服务器发送请求，也遵循同源策略，最后在index.html文件打印出`{"title":"fontend","password":"123456"}`
+理论上，任何BFC元素和浮动搞基的时候，都可以实现自动填充的自适应布局。
 
-### 6.nginx反向代理
+但是，由于绝大多数的触发BFC的属性自身有一些古怪的特性，所以，实际操作的时候，能兼顾流体特性和BFC特性来实现无敌自适应布局的属性并不多。下面我们牵驴遛马一个一个瞅瞅（类似行为仅出1个代表示意，你懂的，如`float:left/right`）：
 
-实现原理类似于Node中间件代理，需要你搭建一个中转nginx服务器，用于转发请求。
+1. **float:left** 浮动元素本身BFC化，然而浮动元素有破坏性和包裹性，失去了元素本身的流体自适应性，因此，无法用来实现自动填满容器的自适应布局。不过，其因兼容性还算良好，与堆积木这种现实认知匹配，上手简单，因此在旧时代被大肆使用，也就是常说的“浮动布局”，也算阴差阳错开创了自己的一套布局。
+2. **position:absolute** 这个脱离文档流有些严重，过于清高，不跟普通小伙伴玩耍，我就不说什么了……
+3. **overflow:hidden** 这个超棒的哦！不像浮动和绝对定位，玩得有点过。也就是溢出剪裁什么的，本身还是个很普通的元素。因此，块状元素的流体特性保存相当完好，附上BFC的独立区域特性，可谓如虎添翼，宇宙无敌！哈无诶瓦(However), 就跟清除浮动：
 
-使用nginx反向代理实现跨域，是最简单的跨域方式。只需要修改nginx的配置即可解决跨域问题，支持所有浏览器，支持session，不需要修改任何代码，并且不会影响服务器性能。
+    .clearfix { overflow: hidden; _zoom: 1; }
 
-实现思路：通过nginx配置一个代理服务器（域名与domain1相同，端口不同）做跳板机，反向代理访问domain2接口，并且可以顺便修改cookie中domain信息，方便当前域cookie写入，实现跨域登录。
+一样。由于很多场景我们是不能`overflow:hidden`的，因此，无法作为一个通用CSS类整站大规模使用。因此，`float+overflow`的自适应布局，我们可以在局部（你确定不会有什么被剪裁的情况下）很happy地使用。
 
-先下载[nginx](http://nginx.org/en/download.html)，然后将nginx目录下的nginx.conf修改如下:
+4. **display:inline-block** CSS届最伟大的声明之一，但是，在这里，就有些捉襟见肘了。`display:inline-block`会让元素尺寸包裹收缩，完全就不是我们想要的`block`水平的流动特性。唉，只能是一声叹气一枪毙掉的命！然而，峰回路转，世事难料。大家应该知道，IE6/IE7浏览器下，`block`水平的元素设置`display:inline-block`元素还是`block`水平，也就是还是会自适应容器的可用宽度显示。于是，我们就阴差阳错得到一个比`overflow:hidden`更牛逼的声明，即BFC特性加身，又流体特性保留。
 
-    //proxy服务器server{listen81;server_namewww.domain1.com;location/ {proxy_passhttp://www.domain2.com:8080;  #反向代理proxy_cookie_domainwww.domain2.com www.domain1.com; #修改cookie里域名indexindex.html index.htm;
-            # 当用webpack-dev-server等中间件代理接口访问nignx时，此时无浏览器参与，故没有同源限制，下面的跨域配置可不启用add_headerAccess-Control-Allow-Origin http://www.domain1.com;  #当前端只跨域不带cookie时，可为*add_headerAccess-Control-Allow-Credentials true;}}
+    .float-left {
+        float: left;
+    }
+    .bfc-content {
+        display: inline-block;
+    }
 
-最后通过命令行`nginx -s reload`启动nginx
+当然，`*zoom: 1`也是类似效果，不过只适用于低级的IE浏览器，如IE7~
 
-    // index.htmlvar xhr = new XMLHttpRequest();
-    // 前端开关：浏览器是否读写cookie
-    xhr.withCredentials = true;
-    // 访问nginx中的代理服务器
-    xhr.open('get', 'http://www.domain1.com:81/?user=admin', true);
-    xhr.send();
+5. **display:table-cell** 让元素表现得像单元格一样，IE8+以上浏览器才支持。跟`display:inline-block`一样，会跟随内部元素的宽度显示，看样子也是不合适的命。但是，单元格有个非常神奇的特性，就是你宽度值设置地再大，大到西伯利亚，实际宽度也不会超过表格容器的宽度。
+![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_224124.png)
+因此，如果我们把`display:table-cell`这个BFC元素宽度设置很大，比方说3000像素。那其实就跟`block`水平元素自动适应容器空间效果一模一样了。除非你的容器宽度超过3000像素，实际上，一般web页面不会有3000像素宽的模块的。所以，要是你实在不放心，设个`9999`像素值好了！
 
-    // server.jsvar http = require('http');
-    var server = http.createServer();
-    var qs = require('querystring');
-    server.on('request', function(req, res) {
-        var params = qs.parse(req.url.substring(2));
-        // 向前台写cookie
-        res.writeHead(200, {
-            'Set-Cookie': 'l=a123456;Path=/;Domain=www.domain2.com;HttpOnly'// HttpOnly:脚本无法读取
-        });
-        res.write(JSON.stringify(params));
-        res.end();
-    });
-    server.listen('8080');
-    console.log('Server is running at port 8080...');
+    .float-left {
+        float: left;
+    }
+    .bfc-content {
+        display: table-cell; width: 9999px;
+    }
 
-### 7.window.name + iframe
+看上去，好像还不错。但是，还是有两点制约，一是IE8+以上浏览器兼容，有些苦逼的团队还要管IE6；二是应付连续英文字符换行有些吃力（可以嵌套`table-layout:fixed`解决）。但是，总体来看，适用的场景要比`overflow:hidden`广博很多。
 
-window.name属性的独特之处：name值在不同的页面（甚至不同域名）加载后依旧存在，并且可以支持非常长的 name 值（2MB）。
+6. **display:table-row** 对`width`无感，无法自适应剩余容器空间。
+7. **display:table-caption** 一无是处……还有其他声明也都是一无是处，我就不全部展开了……
 
-其中a.html和b.html是同域的，都是`http://localhost:3000`;而c.html是`http://localhost:4000`
+**总结：**我们对BFC声明家族大致过了一遍，能担任自适应布局重任的也就是：
 
-     // a.html(http://localhost:3000/b.html)
-      <iframesrc="http://localhost:4000/c.html"frameborder="0"onload="load()"id="iframe"></iframe><script>let first = true// onload事件会触发2次，第1次加载跨域页，并留存数据于window.namefunctionload() {
-          if(first){
-          // 第1次onload(跨域页)成功后，切换到同域代理页面let iframe = document.getElementById('iframe');
-            iframe.src = 'http://localhost:3000/b.html';
-            first = false;
-          }else{
-          // 第2次onload(同域b.html页)成功后，读取同域window.name中数据console.log(iframe.contentWindow.name);
-          }
-        }
-      </script>
+1. `overflow:auto/hidden` IE7+
+2. `display:inline-block`  IE6/IE7
+3. `display:table-cell`   IE8+
 
-b.html为中间代理页，与a.html同域，内容为空。
+由于overflow有剪裁和出现滚动条等隐患，不适合作为整站通用类，于是，最后，类似清除浮动的通用类语句：
 
-     // c.html(http://localhost:4000/c.html)
-      <script>window.name = '我不爱你'</script>
+    .clearfix {
+        *zoom: 1;
+    }
+    .clearfix:after {
+        content: ''; display: table; clear: both;
+    }
 
-总结：通过iframe的src属性由外域转向本地域，跨域数据即由iframe的window.name从外域传递到本地域。这个就巧妙地绕过了浏览器的跨域访问限制，但同时它又是安全操作。
+两栏或多栏自适应布局的通用类语句是（`block`水平标签，需配合浮动）：
 
-### 8.location.hash +  iframe
+    .cell {
+        display: table-cell; width: 9999px;
+        *display: inline-block; *width: auto;
+    }
+    
 
-实现原理： a.html欲与c.html跨域相互通信，通过中间页b.html来实现。 三个页面，不同域之间利用iframe的location.hash传值，相同域之间直接js访问来通信。
+这就是[zxx.lib.css](https://github.com/zhangxinxu/zxx.lib.css)CSS样式库中`.cell`的由来！
 
-具体实现步骤：一开始a.html给c.html传一个hash值，然后c.html收到hash值后，再把hash值传递给b.html，最后b.html将结果放到a.html的hash值中。
-同样的，a.html和b.html是同域的，都是`http://localhost:3000`;而c.html是`http://localhost:4000`
+当然，由于和浮动元素合作，清除浮动还是要的，于是，就有了`.fix` + `.l/.r` + `.cell`的无敌组合，可以多栏，也可以无限嵌套。
 
-     // a.html
-      <iframesrc="http://localhost:4000/c.html#iloveyou"></iframe><script>window.onhashchange = function () { //检测hash的变化console.log(location.hash);
-        }
-      </script>
+如果是局部，且确认安全；或有连续英文字符换行的隐患，你也可以使用`.fix` + `.l/.r` + `.ovh`的无敌组合，可以多栏，也可以无限嵌套。
 
-     // b.html
-      <script>window.parent.parent.location.hash = location.hash 
-        //b.html将结果放到a.html的hash值中，b.html可通过parent.parent访问a.html页面</script>
+### 四、结束之言
 
-    // c.htmlconsole.log(location.hash);
-      let iframe = document.createElement('iframe');
-      iframe.src = 'http://localhost:3000/b.html#idontloveyou';
-      document.body.appendChild(iframe);
+估计本文是春节前的最后一篇文章了，小生在这里提前祝大家「羊年快乐」「万事如意」「事业蒸蒸日上」！
 
-### 9.document.domain + iframe
+另，本文内容非权威，多个人理解与感悟，仅供参考。欢迎交流，提出您的真知灼见！
 
-**该方式只能用于二级域名相同的情况下，比如 `a.test.com` 和 `b.test.com` 适用于该方式**。
-只需要给页面添加 `document.domain ='test.com'` 表示二级域名都相同就可以实现跨域。
+感谢阅读！![image](https://mat1.gtimg.com/www/mb/images/face/14.gif)
 
-实现原理：两个页面都通过js强制设置document.domain为基础主域，就实现了同域。
+本文为原创文章，会经常更新知识点以及修正一些错误，因此转载请保留原出处，方便溯源，避免陈旧错误知识的误导，同时有更好的阅读体验。
 
-我们看个例子：页面`a.zf1.cn:3000/a.html`获取页面`b.zf1.cn:3000/b.html`中a的值
+本文地址：[https://www.zhangxinxu.com/wordpress/?p=4588](https://www.zhangxinxu.com/wordpress/?p=4588)
 
-    // a.html
-    <body>
-     helloa
-      <iframesrc="http://b.zf1.cn:3000/b.html"frameborder="0"onload="load()"id="frame"></iframe><script>document.domain = 'zf1.cn'functionload() {
-          console.log(frame.contentWindow.a);
-        }
-      </script></body>
+（本篇完）// 文章不错，我要[分享到微信](javascript:)！有话要说？点击[这里](#comment)。
 
-    // b.html
-    <body>
-       hellob
-       <script>document.domain = 'zf1.cn'var a = 100;
-       </script></body>
+« [图片动态局部毛玻璃模糊效果的实现](https://www.zhangxinxu.com/wordpress/2015/02/image-local-blur-background-attachment-fixed/)
 
-## 三、总结
+[小tip: IE下zoom或Matrix矩阵滤镜中心点变换实现](https://www.zhangxinxu.com/wordpress/2015/02/ie-zoom-transform-filter/) »
 
-- CORS支持所有类型的HTTP请求，是跨域HTTP请求的根本解决方案
-- JSONP只支持GET请求，JSONP的优势在于支持老式浏览器，以及可以向不支持CORS的网站请求数据。
-- 不管是Node中间件代理还是nginx反向代理，主要是通过同源策略对服务器不加限制。
-- 日常工作中，用得比较多的跨域方案是cors和nginx反向代理
+猜你喜欢
 
-**给大家推荐一个好用的BUG监控工具[Fundebug](https://www.fundebug.com/?utm_source=liao)，欢迎免费试用！**
+- [快速了解CSS display:flow-root声明](https://www.zhangxinxu.com/wordpress/2020/05/css-display-flow-root/)(0.305)
+- [CSS百分比padding实现比例固定图片自适应布局](https://www.zhangxinxu.com/wordpress/2017/08/css-percent-padding-image-layout/)(0.218)
+- [display:table-cell自适应布局下连续单词字符换行](https://www.zhangxinxu.com/wordpress/2012/01/display-table-cell-display-table-layout-fixed-word-wrap-break-word/)(0.145)
+- [border-collapse与table td边框opacity透明度诡异解析](https://www.zhangxinxu.com/wordpress/2015/03/border-collapse-table-td-border-opacity/)(0.145)
+- [我所知道的几种display:table-cell的应用](https://www.zhangxinxu.com/wordpress/2010/10/%e6%88%91%e6%89%80%e7%9f%a5%e9%81%93%e7%9a%84%e5%87%a0%e7%a7%8ddisplaytable-cell%e7%9a%84%e5%ba%94%e7%94%a8/)(0.135)
+- [display:inline-block/text-align:justify下列表的两端对齐布局](https://www.zhangxinxu.com/wordpress/2011/03/displayinline-blocktext-alignjustify%e4%b8%8b%e5%88%97%e8%a1%a8%e7%9a%84%e4%b8%a4%e7%ab%af%e5%af%b9%e9%bd%90%e5%b8%83%e5%b1%80/)(0.135)
+- [CSS样式分离之再分离](https://www.zhangxinxu.com/wordpress/2010/07/css%e6%a0%b7%e5%bc%8f%e5%88%86%e7%a6%bb%e4%b9%8b%e5%86%8d%e5%88%86%e7%a6%bb/)(0.126)
+- [大小不固定的图片、多行文字的水平垂直居中](https://www.zhangxinxu.com/wordpress/2009/08/%e5%a4%a7%e5%b0%8f%e4%b8%8d%e5%9b%ba%e5%ae%9a%e7%9a%84%e5%9b%be%e7%89%87%e3%80%81%e5%a4%9a%e8%a1%8c%e6%96%87%e5%ad%97%e7%9a%84%e6%b0%b4%e5%b9%b3%e5%9e%82%e7%9b%b4%e5%b1%85%e4%b8%ad/)(0.118)
+- [对overflow与zoom"清除浮动"的一些认识](https://www.zhangxinxu.com/wordpress/2010/01/%e5%af%b9overflow%e4%b8%8ezoom%e6%b8%85%e9%99%a4%e6%b5%ae%e5%8a%a8%e7%9a%84%e4%b8%80%e4%ba%9b%e8%ae%a4%e8%af%86/)(0.118)
+- [理解CSS3 max/min-content及fit-content等width值](https://www.zhangxinxu.com/wordpress/2016/05/css3-width-max-contnet-min-content-fit-content/)(0.118)
+- [letter-spacing+first-letter实现按钮文字隐藏](https://www.zhangxinxu.com/wordpress/2013/07/letter-spacing-first-letter-%e6%8c%89%e9%92%ae%e6%96%87%e5%ad%97%e9%9a%90%e8%97%8f/)(RANDOM - 0.031)
 
-![image](https://segmentfault.com//img/remote/1460000018090213?w=2800&amp;h=800)
+分享到：[//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153](//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153)[/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20](/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20)
 
-## 参考文章
-
-- [跨域资源共享 CORS 详解](http://www.ruanyifeng.com/blog/2016/04/cors.html)
-- [前端面试之道](https://juejin.im/book/5bdc715fe51d454e755f75ef/section/5bdc71fbf265da6128599324)
-- [window.postMessage](https://developer.mozilla.org/zh-CN/docs/Web/API/Window/postMessage)
-- [前端常见跨域解决方案（全）](https://segmentfault.com/a/1190000011145364)
-- [深入跨域问题(4) - 利用代理解决跨域](https://juejin.im/post/5afd79aa6fb9a07ac162a540)
+标签： [BFC](https://www.zhangxinxu.com/wordpress/tag/bfc/), [display:inline-block](https://www.zhangxinxu.com/wordpress/tag/displayinline-block/), [display:table-cell](https://www.zhangxinxu.com/wordpress/tag/displaytable-cell/), [inline-block](https://www.zhangxinxu.com/wordpress/tag/inline-block/), [overflow:hidden](https://www.zhangxinxu.com/wordpress/tag/overflowhidden/), [table-cell](https://www.zhangxinxu.com/wordpress/tag/table-cell/), [布局](https://www.zhangxinxu.com/wordpress/tag/%e5%b8%83%e5%b1%80/), [流动性布局](https://www.zhangxinxu.com/wordpress/tag/%e6%b5%81%e5%8a%a8%e6%80%a7%e5%b8%83%e5%b1%80/), [自适应布局](https://www.zhangxinxu.com/wordpress/tag/%e8%87%aa%e9%80%82%e5%ba%94%e5%b8%83%e5%b1%80/)

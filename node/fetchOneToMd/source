@@ -1,852 +1,227 @@
-<article class="article fmt article-content" data-id="1190000018017118" data-license="nd">
-                                
-<h2 id="item-1">前言</h2>
-<p>前后端数据交互经常会碰到请求跨域，什么是跨域，以及有哪几种跨域方式，这是本文要探讨的内容。</p>
-<p><strong>本文完整的源代码请猛戳<a href="https://github.com/ljianshu/Blog" rel="nofollow noreferrer" target="_blank">github博客</a>，纸上得来终觉浅，建议动手敲敲代码</strong></p>
-<h2 id="item-2">一、什么是跨域？</h2>
-<h3 id="item-2-1">1.什么是同源策略及其限制内容？</h3>
-<p>同源策略是一种约定，它是浏览器最核心也最基本的安全功能，如果缺少了同源策略，浏览器很容易受到XSS、CSRF等攻击。所谓同源是指"协议+域名+端口"三者相同，即便两个不同的域名指向同一个ip地址，也非同源。<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000016756435?w=872&amp;h=208" alt="url的组成" title="url的组成"></span><br><strong>同源策略限制内容有：</strong></p>
-<ul>
-<li>Cookie、LocalStorage、IndexedDB 等存储性内容</li>
-<li>DOM 节点</li>
-<li>AJAX 请求发送后，结果被浏览器拦截了</li>
-</ul>
-<p>但是有三个标签是允许跨域加载资源：</p>
-<ul>
-<li><code>&lt;img src=XXX&gt;</code></li>
-<li><code>&lt;link href=XXX&gt;</code></li>
-<li><code>&lt;script src=XXX&gt;</code></li>
-</ul>
-<h3 id="item-2-2">2.常见跨域场景</h3>
-<p><strong>当协议、子域名、主域名、端口号中任意一个不相同时，都算作不同域</strong>。不同域之间相互请求资源，就算作“跨域”。常见跨域场景如下图所示：<br><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000016756436?w=827&amp;h=819" alt="" title=""></span></p>
-<p>特别说明两点：</p>
-<p><strong>第一：如果是协议和端口造成的跨域问题“前台”是无能为力的。</strong></p>
-<p><strong>第二：在跨域问题上，仅仅是通过“URL的首部”来识别而不会根据域名对应的IP地址是否相同来判断。“URL的首部”可以理解为“协议, 域名和端口必须匹配”</strong>。</p>
-<p>这里你或许有个疑问：<strong>请求跨域了，那么请求到底发出去没有？</strong></p>
-<p><strong>跨域并不是请求发不出去，请求能发出去，服务端能收到请求并正常返回结果，只是结果被浏览器拦截了</strong>。你可能会疑问明明通过表单的方式可以发起跨域请求，为什么 Ajax 就不会?因为归根结底，跨域是为了阻止用户读取到另一个域名下的内容，Ajax 可以获取响应，浏览器认为这不安全，所以拦截了响应。但是表单并不会获取新的内容，所以可以发起跨域请求。同时也说明了跨域并不能完全阻止 CSRF，因为请求毕竟是发出去了。</p>
-<h2 id="item-3">二、跨域解决方案</h2>
-<h3 id="item-3-3">1.jsonp</h3>
-<h4>1) JSONP原理</h4>
-<p><strong>利用 <code>&lt;script&gt;</code> 标签没有跨域限制的漏洞，网页可以得到从其他来源动态产生的 JSON 数据。JSONP请求一定需要对方的服务器做支持才可以。</strong></p>
-<h4>2) JSONP和AJAX对比</h4>
-<p>JSONP和AJAX相同，都是客户端向服务器端发送请求，从服务器端获取数据的方式。但AJAX属于同源策略，JSONP属于非同源策略（跨域请求）</p>
-<h4>3) JSONP优缺点</h4>
-<p>JSONP优点是简单兼容性好，可用于解决主流浏览器的跨域数据访问的问题。<strong>缺点是仅支持get方法具有局限性,不安全可能会遭受XSS攻击。</strong></p>
-<h4>4) JSONP的实现流程</h4>
-<ul>
-<li>声明一个回调函数，其函数名(如show)当做参数值，要传递给跨域请求数据的服务器，函数形参为要获取目标数据(服务器返回的data)。</li>
-<li>创建一个<code>&lt;script&gt;</code>标签，把那个跨域的API数据接口地址，赋值给script的src,还要在这个地址中向服务器传递该函数名（可以通过问号传参:?callback=show）。</li>
-<li>服务器接收到请求后，需要进行特殊的处理：把传递进来的函数名和它需要给你的数据拼接成一个字符串,例如：传递进去的函数名是show，它准备好的数据是<code>show('我不爱你')</code>。</li>
-<li>最后服务器把准备的数据通过HTTP协议返回给客户端，客户端再调用执行之前声明的回调函数（show），对返回的数据进行操作。</li>
-</ul>
-<p>在开发中可能会遇到多个 JSONP 请求的回调函数名是相同的，这时候就需要自己封装一个 JSONP函数。</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// index.html
-function jsonp({ url, params, callback }) {
-  return new Promise((resolve, reject) => {
-    let script = document.createElement('script')
-    window[callback] = function(data) {
-      resolve(data)
-      document.body.removeChild(script)
-    }
-    params = { ...params, callback } // wd=b&amp;callback=show
-    let arrs = []
-    for (let key in params) {
-      arrs.push(`${key}=${params[key]}`)
-    }
-    script.src = `${url}?${arrs.join('&amp;')}`
-    document.body.appendChild(script)
-  })
+<div class="post-4588 post type-post status-publish format-standard hentry category-css tag-bfc tag-displayinline-block tag-displaytable-cell tag-inline-block tag-overflowhidden tag-table-cell tag-231 tag-33 tag-979" id="post-4588">
+			<h2 class="single-h" style="font-size:1.9021739130435em;">CSS深入理解流体特性和BFC特性下多栏自适应布局</h2>			<div class="entry">
+				<p style="margin-top:-5px;"><small>这篇文章发布于 2015年02月12日，星期四，23:36，归类于 <a href="https://www.zhangxinxu.com/wordpress/category/css/" rel="category tag">CSS相关</a>。                        阅读 149581 次, 今日 13 次                        <a href="#comments" class="top-comm-a">59 条评论</a></small></p>
+				<!-- 导航 -->
+				<div class="entry-nav">&nbsp;<div id="entryNav" class="title-nav-ul"></div></div>
+				<article><p class="link" style="display: block;"><a href="http://www.mawen.co/?utm_source=zxx-web-2020" style="color:#de0000;font-size:16px;" target="_blank" rel="nofollow noopener" onclick="_gaq.push(['_trackEvent', 'GITEE', 'click', 'ARTICLE TOP']);">2020年阿里最新面试题汇总免费领取</a></p>
+<h3>一、开篇之言</h3>
+<p>要说web上实现两栏自适应布局的方法，一双手都数不过来。不知大家有没有细想过，为什么这些方法可以实现自适应布局呢？<img src="https://mat1.gtimg.com/www/mb/images/face/32.gif" align="absmiddle"></p>
+<p>本文就将深入探讨下流体特性和BFC特性下的两栏自适应布局，还是针对传统布局。一些现代布局，如弹性盒子模型布局(Flexbox Layout)，格栅布局(Grid Layout)不在本文探讨之类。</p>
+<blockquote><p>有些人看了个标题，以及看了前面一两段，发现，都是我知道的概念嘛，什么流动性，什么BFC~~于是，就悻悻离开了。这就是我们常说的浮躁，保持一颗谦逊的心，细细阅读，你会发现，其中一定有你所没有关注过的地方，所谓三人行必有我师。没错，这句话就是写给你看的，同时也是自我内省与监督。</p></blockquote>
+<h3>二、块状元素的流体特性与自适应布局</h3>
+<p><strong>流体特性</strong><br>
+块状水平元素，如<code>div</code>元素（下同），在默认情况下（非浮动、绝对定位等），水平方向会自动填满外部的容器；如果有<code>margin-left/margin-right</code>, <code>padding-left/padding-right</code>, <code>border-left-width/border-right-width</code>等，实际内容区域会响应变窄。</p>
+<p>一图胜千言，一例胜千图。可参考下面例子，感受下<code>div</code>元素的流体特性：</p>
+<p><iframe src="https://www.zhangxinxu.com/study/201502/div-flow.html" width="510" height="520" frameborder="0"></iframe></p>
+<p>图片宽度一直<code>width:100%</code>，依次点击3个按钮，结果随着<code>margin</code>, <code>padding</code>, <code>border</code>的出现，其可用宽度自动跟着减小，形成了自适应效果。就像放在容器中的水流一样，内容区域会随着<code>margin</code>, <code>padding</code>, <code>border</code>的出现自动填满剩余空间，这就是块状元素的流体特性。</p>
+<p><strong>流体特性</strong><br>
+下面，我们稍微做一个调整，<code>div</code>距离容器左侧<code>margin</code> <code>150</code>像素，里面的图片同样<code>100%</code>自适应内容区域。HTML如下：</p>
+<div class="zhxx_code">
+<pre>.flow-box {
+    width: 500px; background-color: #eee; overflow:auto; resize:horizontal;
 }
-jsonp({
-  url: 'http://localhost:3000/say',
-  params: { wd: 'Iloveyou' },
-  callback: 'show'
-}).then(data => {
-  console.log(data)
-})" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">// index.html</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">jsonp</span>(<span class="hljs-params">{ url, params, callback }</span>) </span>{
-  <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">Promise</span>(<span class="hljs-function">(<span class="hljs-params">resolve, reject</span>) =&gt;</span> {
-    <span class="hljs-keyword">let</span> script = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'script'</span>)
-    <span class="hljs-built_in">window</span>[callback] = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">data</span>) </span>{
-      resolve(data)
-      <span class="hljs-built_in">document</span>.body.removeChild(script)
-    }
-    params = { ...params, callback } <span class="hljs-comment">// wd=b&amp;callback=show</span>
-    <span class="hljs-keyword">let</span> arrs = []
-    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> key <span class="hljs-keyword">in</span> params) {
-      arrs.push(<span class="hljs-string">`<span class="hljs-subst">${key}</span>=<span class="hljs-subst">${params[key]}</span>`</span>)
-    }
-    script.src = <span class="hljs-string">`<span class="hljs-subst">${url}</span>?<span class="hljs-subst">${arrs.join(<span class="hljs-string">'&amp;'</span>)}</span>`</span>
-    <span class="hljs-built_in">document</span>.body.appendChild(script)
-  })
+.flow-content {
+    margin-left: 150px;
 }
-jsonp({
-  <span class="hljs-attr">url</span>: <span class="hljs-string">'http://localhost:3000/say'</span>,
-  <span class="hljs-attr">params</span>: { <span class="hljs-attr">wd</span>: <span class="hljs-string">'Iloveyou'</span> },
-  <span class="hljs-attr">callback</span>: <span class="hljs-string">'show'</span>
-}).then(<span class="hljs-function"><span class="hljs-params">data</span> =&gt;</span> {
-  <span class="hljs-built_in">console</span>.log(data)
-})</code></pre>
-<p>上面这段代码相当于向<code>http://localhost:3000/say?wd=Iloveyou&amp;callback=show</code>这个地址请求数据，然后后台返回<code>show('我不爱你')</code>，最后会运行show()这个函数，打印出'我不爱你'</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// server.js
-let express = require('express')
-let app = express()
-app.get('/say', function(req, res) {
-  let { wd, callback } = req.query
-  console.log(wd) // Iloveyou
-  console.log(callback) // show
-  res.end(`${callback}('我不爱你')`)
-})
-app.listen(3000)" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">// server.js</span>
-<span class="hljs-keyword">let</span> express = <span class="hljs-built_in">require</span>(<span class="hljs-string">'express'</span>)
-<span class="hljs-keyword">let</span> app = express()
-app.get(<span class="hljs-string">'/say'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">req, res</span>) </span>{
-  <span class="hljs-keyword">let</span> { wd, callback } = req.query
-  <span class="hljs-built_in">console</span>.log(wd) <span class="hljs-comment">// Iloveyou</span>
-  <span class="hljs-built_in">console</span>.log(callback) <span class="hljs-comment">// show</span>
-  res.end(<span class="hljs-string">`<span class="hljs-subst">${callback}</span>('我不爱你')`</span>)
-})
-app.listen(<span class="hljs-number">3000</span>)</code></pre>
-<h4>5) jQuery的jsonp形式</h4>
-<p><strong>JSONP都是GET和异步请求的，不存在其他的请求方式和同步请求，且jQuery默认就会给JSONP的请求清除缓存。</strong></p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="$.ajax({
-url:&quot;http://crossdomain.com/jsonServerResponse&quot;,
-dataType:&quot;jsonp&quot;,
-type:&quot;get&quot;,//可以省略
-jsonpCallback:&quot;show&quot;,//->自定义传递给服务器的函数名，而不是使用jQuery自动生成的，可省略
-jsonp:&quot;callback&quot;,//->把传递函数名的那个形参callback，可省略
-success:function (data){
-console.log(data);}
-});" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code>$.ajax({
-<span class="hljs-attr">url</span>:<span class="hljs-string">"http://crossdomain.com/jsonServerResponse"</span>,
-<span class="hljs-attr">dataType</span>:<span class="hljs-string">"jsonp"</span>,
-<span class="hljs-attr">type</span>:<span class="hljs-string">"get"</span>,<span class="hljs-comment">//可以省略</span>
-<span class="hljs-attr">jsonpCallback</span>:<span class="hljs-string">"show"</span>,<span class="hljs-comment">//-&gt;自定义传递给服务器的函数名，而不是使用jQuery自动生成的，可省略</span>
-<span class="hljs-attr">jsonp</span>:<span class="hljs-string">"callback"</span>,<span class="hljs-comment">//-&gt;把传递函数名的那个形参callback，可省略</span>
-<span class="hljs-attr">success</span>:<span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">data</span>)</span>{
-<span class="hljs-built_in">console</span>.log(data);}
-});</code></pre>
-<h3 id="item-3-4">2.cors</h3>
-<p><strong>CORS 需要浏览器和后端同时支持。IE 8 和 9 需要通过 XDomainRequest 来实现</strong>。</p>
-<p>浏览器会自动进行 CORS 通信，实现 CORS 通信的关键是后端。只要后端实现了 CORS，就实现了跨域。</p>
-<p>服务端设置 Access-Control-Allow-Origin 就可以开启 CORS。 该属性表示哪些域名可以访问资源，如果设置通配符则表示所有网站都可以访问资源。</p>
-<p>虽然设置 CORS 和前端没什么关系，但是通过这种方式解决跨域问题的话，会在发送请求时出现两种情况，分别为<strong>简单请求</strong>和<strong>复杂请求</strong>。</p>
-<h4>1) 简单请求</h4>
-<p>只要同时满足以下两大条件，就属于简单请求</p>
-<p>条件1：使用下列方法之一：</p>
+</pre>
+</div>
+<div class="zhxx_code">
+<pre>&lt;div class="flow-box"&gt;
+    &lt;div class="flow-content"&gt;&lt;img src="mm1.jpg" width="100%" height="190"&gt;&lt;/div&gt;
+&lt;/div&gt;
+</pre>
+</div>
+<p><iframe src="https://www.zhangxinxu.com/study/201502/margin-left.html" width="100%" height="215" frameborder="0"></iframe></p>
+<p>图片右下角有两道斜杠，我们可以resize拉伸（现代浏览器，且非移动访问），会发现，左侧永远150像素留白，而图片随着容器宽度变化而自适应变化了。</p>
+<p>此时，我们需要好好利用左侧150像素的留白间距，岂不是就可以实现两栏自适应效果！？</p>
+<p>为了不影响原本的流体特性，我们可以使用破坏性属性，如浮动(float:left)，或者绝对定位(position:absolute)。</p>
+<p>我们直接HTML如下调整即可：</p>
+<div class="zhxx_code">
+<pre>&lt;div class="flow-box"&gt;
+    &lt;img src="mm1.jpg" width="128" style="float:left;"&gt;
+    &lt;div class="flow-content"&gt;&lt;img src="mm1.jpg" width="100%" height="190"&gt;&lt;/div&gt;
+&lt;/div&gt;
+</pre>
+</div>
+<div class="zhxx_code">
+<pre>&lt;div class="flow-box"&gt;
+    &lt;img src="mm1.jpg" width="128" style="position:absolute;"&gt;
+    &lt;div class="flow-content"&gt;&lt;img src="mm1.jpg" width="100%" height="190"&gt;&lt;/div&gt;
+&lt;/div&gt;
+</pre>
+</div>
+<p>结果分别如下：<br>
+<iframe src="https://www.zhangxinxu.com/study/201502/float-flow.html" width="100%" height="215" frameborder="0"></iframe><br>
+<iframe src="https://www.zhangxinxu.com/study/201502/absolute-flow.html" width="100%" height="215" frameborder="0"></iframe></p>
+<p>当然，你可以左侧有多个浮动，或者左浮动+右浮动。于是，我们不仅可以实现两栏自适应效果，多栏自适应效果也不在话下。</p>
+<p>然而，利用块状元素流体特性实现的自适应布局有个不足，就是，我们需要知道浮动或绝对定位内容的尺寸。然后，流体内容才能有对应的<code>margin</code>或<code>padding</code>或<code>border</code>值进行位置修正。于是，问题来了，我们没法单纯使用一个公用的类名，类似<code>.clearfix</code>这样，整站通用。因为不同自适应场景的留白距离是不一样的。</p>
+<p>此时，我们可以利用块状元素的BFC特定实现更强大更智能的多栏自适应布局（本文重点）。</p>
+<h3>三、元素的BFC特性与自适应布局</h3>
+<p><strong>1. BFC元素简介与基本表现</strong><br>
+BFC全称”Block Formatting Context”, 中文为“块级格式化上下文”。啪啦啪啦特性什么的，一言难尽，大家可以自行去查找，我这里不详述，免得乱了主次，总之，记住这么一句话：BFC元素特性表现原则就是，内部子元素再怎么翻江倒海，翻云覆雨都不会影响外部的元素。所以，避免margin穿透啊，清除浮动什么的也好理解了。</p>
+<p><img src="https://image.zhangxinxu.com/image/blog/201502/inner-outer.png" width="672" height="312" alt="抱诈（和谐）与钓鱼" class="imgpad mt10"></p>
+<p>什么时候会触发BFC呢？常见的如下：</p>
 <ul>
-<li>GET</li>
-<li>HEAD</li>
-<li>POST</li>
+<li><code>float</code>的值不为<code>none</code>。</li>
+<li><code>overflow</code>的值为<code>auto</code>,<code>scroll</code>或<code>hidden</code>。</li>
+<li><code>display</code>的值为<code>table-cell</code>, <code>table-caption</code>, <code>inline-block</code>中的任何一个。</li>
+<li><code>position</code>的值不为<code>relative</code>和<code>static</code>。</li>
 </ul>
-<p>条件2：Content-Type 的值仅限于下列三者之一：</p>
-<ul>
-<li>text/plain</li>
-<li>multipart/form-data</li>
-<li>application/x-www-form-urlencoded</li>
-</ul>
-<p>请求中的任意 XMLHttpRequestUpload 对象均没有注册任何事件监听器； XMLHttpRequestUpload 对象可以使用 XMLHttpRequest.upload 属性访问。</p>
-<h4>2) 复杂请求</h4>
-<p>不符合以上条件的请求就肯定是复杂请求了。<br>复杂请求的CORS请求，会在正式通信之前，增加一次HTTP查询请求，称为"预检"请求,该请求是 option 方法的，通过该请求来知道服务端是否允许跨域请求。</p>
-<p>我们用<code>PUT</code>向后台请求时，属于复杂请求，后台需做如下配置：</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// 允许哪个方法访问我
-res.setHeader('Access-Control-Allow-Methods', 'PUT')
-// 预检的存活时间
-res.setHeader('Access-Control-Max-Age', 6)
-// OPTIONS请求不做任何处理
-if (req.method === 'OPTIONS') {
-  res.end() 
+<p>BFC特性很多，而我们这里，只关心一个，和<code>float</code>元素做相邻兄弟时候的表现。</p>
+<p>如果是上面介绍的流体特性<code>div</code>, 当其和浮动元素当兄弟的时候，是覆盖的关系（可以脑补下文字环绕图片效果）。但是，元素BFC化后，本着“里面惊天抱诈（和谐）炸成鬼，外面依然泰然钓大鱼”的原则，自然是不会与浮动重叠的（你想啊，要是出来个<code>clear:both</code>还不跟外面浮动干上一架啊），因此，块状相邻，点击下面按钮感受下。<br>
+<iframe src="https://www.zhangxinxu.com/study/201502/flow-to-bfc.html" width="100%" height="180" frameborder="0"></iframe></p>
+<p>会发现，普通流体元素BFC后，为了和浮动元素不产生任何交集，顺着浮动边缘形成自己的封闭上下文。如下截图：<br>
+<img src="https://image.zhangxinxu.com/image/blog/201502/2015-02-10_003132.png" width="438" height="165" alt="BFC与浮动边缘对齐~" class="alignnone"></p>
+<p>同时，<strong>元素原本的流体特性依然保留了</strong>。哈，这个很重要，也就是，虽然不与浮动交集，自动退避浮动元素宽度的距离，但，本身作为普通元素的流动性依然存在，反映在布局上就是自动填满除去浮动内容以外的剩余空间。哟，这不就是自适应布局嘛！！</p>
+<p><strong>2. BFC自适应布局模块间的间距</strong><br>
+然而，模块过于亲密接触，可能不是我们想要的。一般而言，我们需要一点间距。</p>
+<p>说到间距，我们的第一反应就是<code>margin</code>. 于是，我们给BFC元素增加一个<code>margin-left:20px</code>, CSS代码如下：</p>
+<div class="zhxx_code">
+<pre>.float-left {
+    float: left;
 }
-// 定义后台返回的内容
-app.put('/getData', function(req, res) {
-  console.log(req.headers)
-  res.end('我不爱你')
-})" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs less"><code><span class="hljs-comment">// 允许哪个方法访问我</span>
-<span class="hljs-selector-tag">res</span><span class="hljs-selector-class">.setHeader</span>(<span class="hljs-string">'Access-Control-Allow-Methods'</span>, <span class="hljs-string">'PUT'</span>)
-<span class="hljs-comment">// 预检的存活时间</span>
-<span class="hljs-selector-tag">res</span><span class="hljs-selector-class">.setHeader</span>(<span class="hljs-string">'Access-Control-Max-Age'</span>, <span class="hljs-number">6</span>)
-<span class="hljs-comment">// OPTIONS请求不做任何处理</span>
-<span class="hljs-selector-tag">if</span> (req.method === <span class="hljs-string">'OPTIONS'</span>) {
-  <span class="hljs-selector-tag">res</span><span class="hljs-selector-class">.end</span>() 
+.follow-content {
+    <span style="color:#cd0000;">margin-left: 20px;</span>
+    background-color: #cad5eb;
+    overflow: hidden;
+}</pre>
+</div>
+<p>结果……纳尼~ <img src="https://mat1.gtimg.com/www/mb/images/face/110.gif" align="absmiddle"> 怎么还是像狗屁膏药贴在一起啊？？<br>
+<img src="https://image.zhangxinxu.com/image/blog/201502/2015-02-12_001810.png" width="432" height="182" alt="margin-left:20px无效截图" class="alignnone"></p>
+<p>您可以狠狠地点击这里：<a href="https://www.zhangxinxu.com/study/201502/flow-to-bfc-margin.html" class="a_link" target="_blank">BFC元素增加一个margin无效demo</a></p>
+<p>实际上，这里的<strong>margin并不是无效，而是值不够大</strong>，鞭长莫及啊！</p>
+<p><img src="https://image.zhangxinxu.com/image/blog/201502/bianchangmoji.jpg" width="300" height="164" alt="朕真是鞭长莫及" class="alignnone"></p>
+<p>用一个形象的Gif表示就是下面这样（点击播放-468K）：<br>
+<img src="https://image.zhangxinxu.com/image/blog/201910/kick-girl.gif" width="180" height="200" alt="女生拳打脚踢够不到男孩" onclick="this.src=this.src.replace('.jpg','.gif')" class="alignnone"></p>
+<p>左侧浮动的图片就好比上面Gif图片中男孩的胳膊，妹子就是BFC元素，结果两人紧密接触。然后，<code>margin-left</code>就是妹子的胳膊个脚，虽然也甩出去了，可惜长度有限，于是，毫无影响。</p>
+<p>如果按照上面的解释，那我们把<code>margin-left:20px</code>改成<code>margin-left:150px</code>就应该有间距了？<img src="https://mat1.gtimg.com/www/mb/images/face/32.gif" align="absmiddle"> 一试便知！</p>
+<div class="zhxx_code">
+<pre>.float-left {
+    float: left;
 }
-<span class="hljs-comment">// 定义后台返回的内容</span>
-<span class="hljs-selector-tag">app</span><span class="hljs-selector-class">.put</span>(<span class="hljs-string">'/getData'</span>, function(req, res) {
-  <span class="hljs-selector-tag">console</span><span class="hljs-selector-class">.log</span>(req.headers)
-  <span class="hljs-selector-tag">res</span><span class="hljs-selector-class">.end</span>(<span class="hljs-string">'我不爱你'</span>)
-})</code></pre>
-<p>接下来我们看下一个完整复杂请求的例子，并且介绍下CORS请求相关的字段</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// index.html
-let xhr = new XMLHttpRequest()
-document.cookie = 'name=xiamen' // cookie不能跨域
-xhr.withCredentials = true // 前端设置是否带cookie
-xhr.open('PUT', 'http://localhost:4000/getData', true)
-xhr.setRequestHeader('name', 'xiamen')
-xhr.onreadystatechange = function() {
-  if (xhr.readyState === 4) {
-    if ((xhr.status >= 200 &amp;&amp; xhr.status < 300) || xhr.status === 304) {
-      console.log(xhr.response)
-      //得到响应头，后台需设置Access-Control-Expose-Headers
-      console.log(xhr.getResponseHeader('name'))
-    }
-  }
+.follow-content {
+    <span style="color:#cd0000;">margin-left: 150px;</span>
+    background-color: #cad5eb;
+    overflow: hidden;
+}</pre>
+</div>
+<p>结果，当当当当：<br>
+<img src="https://image.zhangxinxu.com/image/blog/201502/2015-02-12_003900.png" width="431" height="179" alt="margin值很大收获的间距" class="alignnone"></p>
+<p><strong>注意：</strong>我这里举<code>margin</code>这个例子，不是让大家这样使用，只是为了让大家可以深入理解BFC元素与浮动元素混排的特性表现。实际开发，我们完全没有必要对BFC元素设置<code>margin</code>, 因为又回到了流体布局，明明是固定的15像素间距，但是，每个布局都要写一个不同的<code>margin</code>值，完全没有重用价值。</p>
+<p>但是，间距部分的高潮来了！</p>
+<p>我们可以使用浮动元素的<code>margin-right</code>或者<code>padding-right</code>轻松实现间距效果。间距是<code>20</code>像素，直接：</p>
+<div class="zhxx_code">
+<pre>.float-left {
+    float: left;
+    <span style="color:#cd0000;">margin-right: 20px;</span>
+}</pre>
+</div>
+<p>与浮动元素的宽度是多少没有任何关系。不仅如此，我们还可以使用BFC元素的<code>padding-left</code>撑开间距（虽然<code>margin-left</code>作用鸡肋）。</p>
+<p>于是，我们可能就会有：</p>
+<div class="zhxx_code">
+<pre>.l { float: left; }
+.ovh { overflow: hidden; }
+</pre>
+</div>
+<p>的自适应固定搭配。再配合<a href="https://github.com/zhangxinxu/zxx.lib.css" target="_blank">zxx.lib.css</a>CSS样式库的<code>margin</code>和<code>padding</code>家族，快速布局可谓所向披靡。</p>
+<p><strong>3. 与纯流体特性布局的优势</strong><br>
+BFC自适应布局优势我总结了下面2点：</p>
+<ol>
+<li>自适应内容由于封闭，更健壮，容错性强。比方说，内部<code>clear:both</code>不会与兄弟<code>float</code>产生矛盾。而纯流体布局，<code>clear:both</code>会让后面内容无法和<code>float</code>元素在一个水平上，产生布局问题。</li>
+<li>自适应内容自动填满浮动以为区域，无需关心浮动元素宽度，可以整站大规模应用。而纯流体布局，需要大小不确定的<code>margin</code>/<code>padding</code>等值撑开合适间距，无法CSS组件化。</li>
+</ol>
+<p>如下效果，图片能大能小，布局依然良好：</p>
+<p><iframe src="https://www.zhangxinxu.com/study/201502/flow-to-bfc-animation.html" width="400" height="216" frameborder="0"></iframe></p>
+<p>而CSS代码就是非常简单的：</p>
+<div class="zhxx_code">
+<pre>.float-left {
+    <span style="color:#cd0000;">float: left;</span> margin-right: 20px; 
 }
-xhr.send()" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">// index.html</span>
-<span class="hljs-keyword">let</span> xhr = <span class="hljs-keyword">new</span> XMLHttpRequest()
-<span class="hljs-built_in">document</span>.cookie = <span class="hljs-string">'name=xiamen'</span> <span class="hljs-comment">// cookie不能跨域</span>
-xhr.withCredentials = <span class="hljs-literal">true</span> <span class="hljs-comment">// 前端设置是否带cookie</span>
-xhr.open(<span class="hljs-string">'PUT'</span>, <span class="hljs-string">'http://localhost:4000/getData'</span>, <span class="hljs-literal">true</span>)
-xhr.setRequestHeader(<span class="hljs-string">'name'</span>, <span class="hljs-string">'xiamen'</span>)
-xhr.onreadystatechange = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
-  <span class="hljs-keyword">if</span> (xhr.readyState === <span class="hljs-number">4</span>) {
-    <span class="hljs-keyword">if</span> ((xhr.status &gt;= <span class="hljs-number">200</span> &amp;&amp; xhr.status &lt; <span class="hljs-number">300</span>) || xhr.status === <span class="hljs-number">304</span>) {
-      <span class="hljs-built_in">console</span>.log(xhr.response)
-      <span class="hljs-comment">//得到响应头，后台需设置Access-Control-Expose-Headers</span>
-      <span class="hljs-built_in">console</span>.log(xhr.getResponseHeader(<span class="hljs-string">'name'</span>))
-    }
-  }
+.bfc-content {
+    <span style="color:#cd0000;">overflow: hidden;</span> background-color: #beceeb;
+}</pre>
+</div>
+<p>可以说，有了BFC自适应布局，基本上没有了纯流体特性布局存在的价值。然而，只是理论上如此。如果，BFC自适应布局真那么吊炸天，那为何并没有口口相传呢？</p>
+<p>那我们就得进一步深入理解了。</p>
+<p><strong>4. BFC元素家族与自适应布局面面观</strong><br>
+理论上，任何BFC元素和浮动搞基的时候，都可以实现自动填充的自适应布局。</p>
+<p>但是，由于绝大多数的触发BFC的属性自身有一些古怪的特性，所以，实际操作的时候，能兼顾流体特性和BFC特性来实现无敌自适应布局的属性并不多。下面我们牵驴遛马一个一个瞅瞅（类似行为仅出1个代表示意，你懂的，如<code>float:left/right</code>）：</p>
+<ol>
+<li><strong>float:left</strong> 浮动元素本身BFC化，然而浮动元素有破坏性和包裹性，失去了元素本身的流体自适应性，因此，无法用来实现自动填满容器的自适应布局。不过，其因兼容性还算良好，与堆积木这种现实认知匹配，上手简单，因此在旧时代被大肆使用，也就是常说的“浮动布局”，也算阴差阳错开创了自己的一套布局。</li>
+<li><strong>position:absolute</strong> 这个脱离文档流有些严重，过于清高，不跟普通小伙伴玩耍，我就不说什么了……</li>
+<li><strong>overflow:hidden</strong> 这个超棒的哦！不像浮动和绝对定位，玩得有点过。也就是溢出剪裁什么的，本身还是个很普通的元素。因此，块状元素的流体特性保存相当完好，附上BFC的独立区域特性，可谓如虎添翼，宇宙无敌！哈无诶瓦(However), 就跟清除浮动：
+<div class="zhxx_code">
+<pre>.clearfix { overflow: hidden; _zoom: 1; }</pre>
+</div>
+<p>一样。由于很多场景我们是不能<code>overflow:hidden</code>的，因此，无法作为一个通用CSS类整站大规模使用。因此，<code>float+overflow</code>的自适应布局，我们可以在局部（你确定不会有什么被剪裁的情况下）很happy地使用。</p></li>
+<li><strong>display:inline-block</strong> CSS届最伟大的声明之一，但是，在这里，就有些捉襟见肘了。<code>display:inline-block</code>会让元素尺寸包裹收缩，完全就不是我们想要的<code>block</code>水平的流动特性。唉，只能是一声叹气一枪毙掉的命！然而，峰回路转，世事难料。大家应该知道，IE6/IE7浏览器下，<code>block</code>水平的元素设置<code>display:inline-block</code>元素还是<code>block</code>水平，也就是还是会自适应容器的可用宽度显示。于是，我们就阴差阳错得到一个比<code>overflow:hidden</code>更牛逼的声明，即BFC特性加身，又流体特性保留。
+<div class="zhxx_code">
+<pre>.float-left {
+    float: left;
 }
-xhr.send()</code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="//server1.js
-let express = require('express');
-let app = express();
-app.use(express.static(__dirname));
-app.listen(3000);" title="" data-original-title="复制"></span>
+.bfc-content {
+    display: inline-block;
+}</pre>
+</div>
+<p>当然，<code>*zoom: 1</code>也是类似效果，不过只适用于低级的IE浏览器，如IE7~</p></li>
+<li><strong>display:table-cell</strong> 让元素表现得像单元格一样，IE8+以上浏览器才支持。跟<code>display:inline-block</code>一样，会跟随内部元素的宽度显示，看样子也是不合适的命。但是，单元格有个非常神奇的特性，就是你宽度值设置地再大，大到西伯利亚，实际宽度也不会超过表格容器的宽度。<br>
+<img src="https://image.zhangxinxu.com/image/blog/201502/2015-02-12_224124.png" width="249" height="259" alt="表格单元格不会超出表格宽度特性" class="alignnone"><p></p>
+<p>因此，如果我们把<code>display:table-cell</code>这个BFC元素宽度设置很大，比方说3000像素。那其实就跟<code>block</code>水平元素自动适应容器空间效果一模一样了。除非你的容器宽度超过3000像素，实际上，一般web页面不会有3000像素宽的模块的。所以，要是你实在不放心，设个<code>9999</code>像素值好了！</p>
+<div class="zhxx_code">
+<pre>.float-left {
+    float: left;
+}
+.bfc-content {
+    display: table-cell; width: 9999px;
+}</pre>
+</div>
+<p>看上去，好像还不错。但是，还是有两点制约，一是IE8+以上浏览器兼容，有些苦逼的团队还要管IE6；二是应付连续英文字符换行有些吃力（可以嵌套<code>table-layout:fixed</code>解决）。但是，总体来看，适用的场景要比<code>overflow:hidden</code>广博很多。
+</p></li>
+<li><strong>display:table-row</strong> 对<code>width</code>无感，无法自适应剩余容器空间。</li>
+<li><strong>display:table-caption</strong> 一无是处……还有其他声明也都是一无是处，我就不全部展开了……</li>
+</ol>
+<p><strong>总结：</strong>我们对BFC声明家族大致过了一遍，能担任自适应布局重任的也就是：</p>
+<ol>
+<li><span style="display:inline-block;width:200px;"><code>overflow:auto/hidden</code></span> IE7+</li>
+<li><span style="display:inline-block;width:200px;"><code>display:inline-block</code></span>  IE6/IE7</li>
+<li><span style="display:inline-block;width:200px;"><code>display:table-cell</code></span>   IE8+</li>
+</ol>
+<p>由于overflow有剪裁和出现滚动条等隐患，不适合作为整站通用类，于是，最后，类似清除浮动的通用类语句：</p>
+<div class="zhxx_code">
+<pre>.clearfix {
+    *zoom: 1;
+}
+.clearfix:after {
+    content: ''; display: table; clear: both;
+}</pre>
+</div>
+<p>两栏或多栏自适应布局的通用类语句是（<code>block</code>水平标签，需配合浮动）：</p>
+<div class="zhxx_code">
+<pre>.cell {
+    display: table-cell; width: 9999px;
+    *display: inline-block; *width: auto;
+}
+</pre>
+</div>
+<p>这就是<a href="https://github.com/zhangxinxu/zxx.lib.css" target="_blank">zxx.lib.css</a>CSS样式库中<code>.cell</code>的由来！</p>
+<p>当然，由于和浮动元素合作，清除浮动还是要的，于是，就有了<code>.fix</code> + <code>.l/.r</code> + <code>.cell</code>的无敌组合，可以多栏，也可以无限嵌套。</p>
+<p>如果是局部，且确认安全；或有连续英文字符换行的隐患，你也可以使用<code>.fix</code> + <code>.l/.r</code> + <code>.ovh</code>的无敌组合，可以多栏，也可以无限嵌套。</p>
+<h3>四、结束之言</h3>
+<p>估计本文是春节前的最后一篇文章了，小生在这里提前祝大家「羊年快乐」「万事如意」「事业蒸蒸日上」！</p>
+<p>另，本文内容非权威，多个人理解与感悟，仅供参考。欢迎交流，提出您的真知灼见！</p>
+<p>感谢阅读！<img src="https://mat1.gtimg.com/www/mb/images/face/14.gif" align="absmiddle"></p>
+<p class="link">本文为原创文章，会经常更新知识点以及修正一些错误，因此转载请保留原出处，方便溯源，避免陈旧错误知识的误导，同时有更好的阅读体验。<br>
+本文地址：<a href="https://www.zhangxinxu.com/wordpress/?p=4588">https://www.zhangxinxu.com/wordpress/?p=4588</a></p>
+<xtwq-q76></xtwq-q76><p>（本篇完）<span class="ins_txt">// 文章不错，我要<a href="javascript:" title="点击显示二维码" onclick="document.querySelector('.bds_weixin').click();_gaq.push(['_trackEvent', 'WX_SHARE', 'click', 'article']);">分享到微信</a>！有话要说？点击<a href="#comment" title="点击定位到评论" onclick="_gaq.push(['_trackEvent', 'WANT_COMM', 'click', 'article']);">这里</a>。</span></p>
+<!-- Tag --></article>
+                <div class="navigation">
+                    <div class="alignleft">« <a href="https://www.zhangxinxu.com/wordpress/2015/02/image-local-blur-background-attachment-fixed/" rel="prev">图片动态局部毛玻璃模糊效果的实现</a></div>
+                    <div class="alignright"><a href="https://www.zhangxinxu.com/wordpress/2015/02/ie-zoom-transform-filter/" rel="next">小tip: IE下zoom或Matrix矩阵滤镜中心点变换实现</a> »</div>
+                </div>
+				<div class="wp_share_box">
+<div class="similarity" onclick="_gaq.push(['_trackEvent', 'MayLike', 'click', 'from bottom']);"><div class="similar_title">猜你喜欢</div><ul><li><a href="https://www.zhangxinxu.com/wordpress/2020/05/css-display-flow-root/">快速了解CSS display:flow-root声明</a> <span class="strength">(0.305)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2017/08/css-percent-padding-image-layout/">CSS百分比padding实现比例固定图片自适应布局</a> <span class="strength">(0.218)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2012/01/display-table-cell-display-table-layout-fixed-word-wrap-break-word/">display:table-cell自适应布局下连续单词字符换行</a> <span class="strength">(0.145)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2015/03/border-collapse-table-td-border-opacity/">border-collapse与table td边框opacity透明度诡异解析</a> <span class="strength">(0.145)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2010/10/%e6%88%91%e6%89%80%e7%9f%a5%e9%81%93%e7%9a%84%e5%87%a0%e7%a7%8ddisplaytable-cell%e7%9a%84%e5%ba%94%e7%94%a8/">我所知道的几种display:table-cell的应用</a> <span class="strength">(0.135)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2011/03/displayinline-blocktext-alignjustify%e4%b8%8b%e5%88%97%e8%a1%a8%e7%9a%84%e4%b8%a4%e7%ab%af%e5%af%b9%e9%bd%90%e5%b8%83%e5%b1%80/">display:inline-block/text-align:justify下列表的两端对齐布局</a> <span class="strength">(0.135)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2010/07/css%e6%a0%b7%e5%bc%8f%e5%88%86%e7%a6%bb%e4%b9%8b%e5%86%8d%e5%88%86%e7%a6%bb/">CSS样式分离之再分离</a> <span class="strength">(0.126)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2009/08/%e5%a4%a7%e5%b0%8f%e4%b8%8d%e5%9b%ba%e5%ae%9a%e7%9a%84%e5%9b%be%e7%89%87%e3%80%81%e5%a4%9a%e8%a1%8c%e6%96%87%e5%ad%97%e7%9a%84%e6%b0%b4%e5%b9%b3%e5%9e%82%e7%9b%b4%e5%b1%85%e4%b8%ad/">大小不固定的图片、多行文字的水平垂直居中</a> <span class="strength">(0.118)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2010/01/%e5%af%b9overflow%e4%b8%8ezoom%e6%b8%85%e9%99%a4%e6%b5%ae%e5%8a%a8%e7%9a%84%e4%b8%80%e4%ba%9b%e8%ae%a4%e8%af%86/">对overflow与zoom"清除浮动"的一些认识</a> <span class="strength">(0.118)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2016/05/css3-width-max-contnet-min-content-fit-content/">理解CSS3 max/min-content及fit-content等width值</a> <span class="strength">(0.118)</span></li><li><a href="https://www.zhangxinxu.com/wordpress/2013/07/letter-spacing-first-letter-%e6%8c%89%e9%92%ae%e6%96%87%e5%ad%97%e9%9a%90%e8%97%8f/">letter-spacing+first-letter实现按钮文字隐藏</a> <span class="strength">(RANDOM - 0.031)</span></li></ul></div><div id="bdshare" class="bdsharebuttonbox share-fixed"><small class="alignleft" style="color:#777;margin-top:6px;">分享<span>到：</span></small><a href="//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153" id="shareWeibo" class="bds_tsina" title="分享到新浪微博" target="_blank"><svg class="icon-share-svg"><use xlink:href="#icon-weibo"></use></svg></a><a href="/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20" id="shareWeixin" class="bds_weixin" title="分享到微信" target="_blank"><svg class="icon-share-svg"><use xlink:href="#icon-weixin"></use></svg></a></div>
         </div>
-        </div><pre class="hljs rust"><code><span class="hljs-comment">//server1.js</span>
-<span class="hljs-keyword">let</span> express = require(<span class="hljs-symbol">'express</span>');
-<span class="hljs-keyword">let</span> app = express();
-app.<span class="hljs-keyword">use</span>(express.<span class="hljs-keyword">static</span>(__dirname));
-app.listen(<span class="hljs-number">3000</span>);</code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="//server2.js
-let express = require('express')
-let app = express()
-let whitList = ['http://localhost:3000'] //设置白名单
-app.use(function(req, res, next) {
-  let origin = req.headers.origin
-  if (whitList.includes(origin)) {
-    // 设置哪个源可以访问我
-    res.setHeader('Access-Control-Allow-Origin', origin)
-    // 允许携带哪个头访问我
-    res.setHeader('Access-Control-Allow-Headers', 'name')
-    // 允许哪个方法访问我
-    res.setHeader('Access-Control-Allow-Methods', 'PUT')
-    // 允许携带cookie
-    res.setHeader('Access-Control-Allow-Credentials', true)
-    // 预检的存活时间
-    res.setHeader('Access-Control-Max-Age', 6)
-    // 允许返回的头
-    res.setHeader('Access-Control-Expose-Headers', 'name')
-    if (req.method === 'OPTIONS') {
-      res.end() // OPTIONS请求不做任何处理
-    }
-  }
-  next()
-})
-app.put('/getData', function(req, res) {
-  console.log(req.headers)
-  res.setHeader('name', 'jw') //返回一个响应头，后台需设置
-  res.end('我不爱你')
-})
-app.get('/getData', function(req, res) {
-  console.log(req.headers)
-  res.end('我不爱你')
-})
-app.use(express.static(__dirname))
-app.listen(4000)" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">//server2.js</span>
-<span class="hljs-keyword">let</span> express = <span class="hljs-built_in">require</span>(<span class="hljs-string">'express'</span>)
-<span class="hljs-keyword">let</span> app = express()
-<span class="hljs-keyword">let</span> whitList = [<span class="hljs-string">'http://localhost:3000'</span>] <span class="hljs-comment">//设置白名单</span>
-app.use(<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">req, res, next</span>) </span>{
-  <span class="hljs-keyword">let</span> origin = req.headers.origin
-  <span class="hljs-keyword">if</span> (whitList.includes(origin)) {
-    <span class="hljs-comment">// 设置哪个源可以访问我</span>
-    res.setHeader(<span class="hljs-string">'Access-Control-Allow-Origin'</span>, origin)
-    <span class="hljs-comment">// 允许携带哪个头访问我</span>
-    res.setHeader(<span class="hljs-string">'Access-Control-Allow-Headers'</span>, <span class="hljs-string">'name'</span>)
-    <span class="hljs-comment">// 允许哪个方法访问我</span>
-    res.setHeader(<span class="hljs-string">'Access-Control-Allow-Methods'</span>, <span class="hljs-string">'PUT'</span>)
-    <span class="hljs-comment">// 允许携带cookie</span>
-    res.setHeader(<span class="hljs-string">'Access-Control-Allow-Credentials'</span>, <span class="hljs-literal">true</span>)
-    <span class="hljs-comment">// 预检的存活时间</span>
-    res.setHeader(<span class="hljs-string">'Access-Control-Max-Age'</span>, <span class="hljs-number">6</span>)
-    <span class="hljs-comment">// 允许返回的头</span>
-    res.setHeader(<span class="hljs-string">'Access-Control-Expose-Headers'</span>, <span class="hljs-string">'name'</span>)
-    <span class="hljs-keyword">if</span> (req.method === <span class="hljs-string">'OPTIONS'</span>) {
-      res.end() <span class="hljs-comment">// OPTIONS请求不做任何处理</span>
-    }
-  }
-  next()
-})
-app.put(<span class="hljs-string">'/getData'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">req, res</span>) </span>{
-  <span class="hljs-built_in">console</span>.log(req.headers)
-  res.setHeader(<span class="hljs-string">'name'</span>, <span class="hljs-string">'jw'</span>) <span class="hljs-comment">//返回一个响应头，后台需设置</span>
-  res.end(<span class="hljs-string">'我不爱你'</span>)
-})
-app.get(<span class="hljs-string">'/getData'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">req, res</span>) </span>{
-  <span class="hljs-built_in">console</span>.log(req.headers)
-  res.end(<span class="hljs-string">'我不爱你'</span>)
-})
-app.use(express.static(__dirname))
-app.listen(<span class="hljs-number">4000</span>)</code></pre>
-<p>上述代码由<code>http://localhost:3000/index.html</code>向<code>http://localhost:4000/</code>跨域请求，正如我们上面所说的，后端是实现 CORS 通信的关键。</p>
-<h3 id="item-3-5">3.postMessage</h3>
-<p>postMessage是HTML5 XMLHttpRequest Level 2中的API，且是为数不多可以跨域操作的window属性之一，它可用于解决以下方面的问题：</p>
-<ul>
-<li>页面和其打开的新窗口的数据传递</li>
-<li>多窗口之间消息传递</li>
-<li>页面与嵌套的iframe消息传递</li>
-<li>上面三个场景的跨域数据传递</li>
-</ul>
-<p><strong>postMessage()方法允许来自不同源的脚本采用异步方式进行有限的通信，可以实现跨文本档、多窗口、跨域消息传递</strong>。</p>
-<blockquote>otherWindow.postMessage(message, targetOrigin, [transfer]);</blockquote>
-<ul>
-<li>message: 将要发送到其他 window的数据。</li>
-<li>targetOrigin:通过窗口的origin属性来指定哪些窗口能接收到消息事件，其值可以是字符串"*"（表示无限制）或者一个URI。在发送消息的时候，如果目标窗口的协议、主机地址或端口这三者的任意一项不匹配targetOrigin提供的值，那么消息就不会被发送；只有三者完全匹配，消息才会被发送。</li>
-<li>transfer(可选)：是一串和message 同时传递的 Transferable 对象. 这些对象的所有权将被转移给消息的接收方，而发送一方将不再保有所有权。</li>
-</ul>
-<p>接下来我们看个例子： <code>http://localhost:3000/a.html</code>页面向<code>http://localhost:4000/b.html</code>传递“我爱你”,然后后者传回"我不爱你"。</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// a.html
-  <iframe src=&quot;http://localhost:4000/b.html&quot; frameborder=&quot;0&quot; id=&quot;frame&quot; onload=&quot;load()&quot;></iframe> //等它加载完触发一个事件
-  //内嵌在http://localhost:3000/a.html
-    <script>
-      function load() {
-        let frame = document.getElementById('frame')
-        frame.contentWindow.postMessage('我爱你', 'http://localhost:4000') //发送数据
-        window.onmessage = function(e) { //接受返回数据
-          console.log(e.data) //我不爱你
-        }
-      }
-    </script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code>// a.html
-  <span class="hljs-tag">&lt;<span class="hljs-name">iframe</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"http://localhost:4000/b.html"</span> <span class="hljs-attr">frameborder</span>=<span class="hljs-string">"0"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"frame"</span> <span class="hljs-attr">onload</span>=<span class="hljs-string">"load()"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">iframe</span>&gt;</span> //等它加载完触发一个事件
-  //内嵌在http://localhost:3000/a.html
-    <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-      <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">load</span>(<span class="hljs-params"></span>) </span>{
-        <span class="hljs-keyword">let</span> frame = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'frame'</span>)
-        frame.contentWindow.postMessage(<span class="hljs-string">'我爱你'</span>, <span class="hljs-string">'http://localhost:4000'</span>) <span class="hljs-comment">//发送数据</span>
-        <span class="hljs-built_in">window</span>.onmessage = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">e</span>) </span>{ <span class="hljs-comment">//接受返回数据</span>
-          <span class="hljs-built_in">console</span>.log(e.data) <span class="hljs-comment">//我不爱你</span>
-        }
-      }
-    </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// b.html
-  window.onmessage = function(e) {
-    console.log(e.data) //我爱你
-    e.source.postMessage('我不爱你', e.origin)
- }" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">// b.html</span>
-  <span class="hljs-built_in">window</span>.onmessage = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">e</span>) </span>{
-    <span class="hljs-built_in">console</span>.log(e.data) <span class="hljs-comment">//我爱你</span>
-    e.source.postMessage(<span class="hljs-string">'我不爱你'</span>, e.origin)
- }</code></pre>
-<h3 id="item-3-6">4.websocket</h3>
-<p>Websocket是HTML5的一个持久化的协议，它实现了浏览器与服务器的全双工通信，同时也是跨域的一种解决方案。WebSocket和HTTP都是应用层协议，都基于 TCP 协议。但是 <strong>WebSocket 是一种双向通信协议，在建立连接之后，WebSocket 的 server 与 client 都能主动向对方发送或接收数据</strong>。同时，WebSocket 在建立连接时需要借助 HTTP 协议，连接建立好了之后 client 与 server 之间的双向通信就与 HTTP 无关了。</p>
-<p>原生WebSocket API使用起来不太方便，我们使用<code>Socket.io</code>，它很好地封装了webSocket接口，提供了更简单、灵活的接口，也对不支持webSocket的浏览器提供了向下兼容。</p>
-<p>我们先来看个例子：本地文件socket.html向<code>localhost:3000</code>发生数据和接受数据</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// socket.html
-<script>
-    let socket = new WebSocket('ws://localhost:3000');
-    socket.onopen = function () {
-      socket.send('我爱你');//向服务器发送数据
-    }
-    socket.onmessage = function (e) {
-      console.log(e.data);//接收服务器返回的数据
-    }
-</script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code>// socket.html
-<span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-    <span class="hljs-keyword">let</span> socket = <span class="hljs-keyword">new</span> WebSocket(<span class="hljs-string">'ws://localhost:3000'</span>);
-    socket.onopen = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) </span>{
-      socket.send(<span class="hljs-string">'我爱你'</span>);<span class="hljs-comment">//向服务器发送数据</span>
-    }
-    socket.onmessage = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">e</span>) </span>{
-      <span class="hljs-built_in">console</span>.log(e.data);<span class="hljs-comment">//接收服务器返回的数据</span>
-    }
-</span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// server.js
-let express = require('express');
-let app = express();
-let WebSocket = require('ws');//记得安装ws
-let wss = new WebSocket.Server({port:3000});
-wss.on('connection',function(ws) {
-  ws.on('message', function (data) {
-    console.log(data);
-    ws.send('我不爱你')
-  });
-})" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">// server.js</span>
-<span class="hljs-keyword">let</span> express = <span class="hljs-built_in">require</span>(<span class="hljs-string">'express'</span>);
-<span class="hljs-keyword">let</span> app = express();
-<span class="hljs-keyword">let</span> WebSocket = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ws'</span>);<span class="hljs-comment">//记得安装ws</span>
-<span class="hljs-keyword">let</span> wss = <span class="hljs-keyword">new</span> WebSocket.Server({<span class="hljs-attr">port</span>:<span class="hljs-number">3000</span>});
-wss.on(<span class="hljs-string">'connection'</span>,<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">ws</span>) </span>{
-  ws.on(<span class="hljs-string">'message'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">data</span>) </span>{
-    <span class="hljs-built_in">console</span>.log(data);
-    ws.send(<span class="hljs-string">'我不爱你'</span>)
-  });
-})</code></pre>
-<h3 id="item-3-7">5. Node中间件代理(两次跨域)</h3>
-<p>实现原理：<strong>同源策略是浏览器需要遵循的标准，而如果是服务器向服务器请求就无需遵循同源策略。</strong><br>代理服务器，需要做以下几个步骤：</p>
-<ul>
-<li>接受客户端请求 。</li>
-<li>将请求 转发给服务器。</li>
-<li>拿到服务器 响应 数据。</li>
-<li>将 响应 转发给客户端。</li>
-</ul>
-<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000018017121?w=600&amp;h=237" alt="" title=""></span></p>
-<p>我们先来看个例子：本地文件index.html文件，通过代理服务器<code>http://localhost:3000</code>向目标服务器<code>http://localhost:4000</code>请求数据。</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// index.html(http://127.0.0.1:5500)
- <script src=&quot;https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js&quot;></script>
-    <script>
-      $.ajax({
-        url: 'http://localhost:3000',
-        type: 'post',
-        data: { name: 'xiamen', password: '123456' },
-        contentType: 'application/json;charset=utf-8',
-        success: function(result) {
-          console.log(result) // {&quot;title&quot;:&quot;fontend&quot;,&quot;password&quot;:&quot;123456&quot;}
-        },
-        error: function(msg) {
-          console.log(msg)
-        }
-      })
-     </script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code>// index.html(http://127.0.0.1:5500)
- <span class="hljs-tag">&lt;<span class="hljs-name">script</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span>
-    <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-      $.ajax({
-        <span class="hljs-attr">url</span>: <span class="hljs-string">'http://localhost:3000'</span>,
-        <span class="hljs-attr">type</span>: <span class="hljs-string">'post'</span>,
-        <span class="hljs-attr">data</span>: { <span class="hljs-attr">name</span>: <span class="hljs-string">'xiamen'</span>, <span class="hljs-attr">password</span>: <span class="hljs-string">'123456'</span> },
-        <span class="hljs-attr">contentType</span>: <span class="hljs-string">'application/json;charset=utf-8'</span>,
-        <span class="hljs-attr">success</span>: <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">result</span>) </span>{
-          <span class="hljs-built_in">console</span>.log(result) <span class="hljs-comment">// {"title":"fontend","password":"123456"}</span>
-        },
-        <span class="hljs-attr">error</span>: <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">msg</span>) </span>{
-          <span class="hljs-built_in">console</span>.log(msg)
-        }
-      })
-     </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// server1.js 代理服务器(http://localhost:3000)
-const http = require('http')
-// 第一步：接受客户端请求
-const server = http.createServer((request, response) => {
-  // 代理服务器，直接和浏览器直接交互，需要设置CORS 的首部字段
-  response.writeHead(200, {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': '*',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  })
-  // 第二步：将请求转发给服务器
-  const proxyRequest = http
-    .request(
-      {
-        host: '127.0.0.1',
-        port: 4000,
-        url: '/',
-        method: request.method,
-        headers: request.headers
-      },
-      serverResponse => {
-        // 第三步：收到服务器的响应
-        var body = ''
-        serverResponse.on('data', chunk => {
-          body += chunk
-        })
-        serverResponse.on('end', () => {
-          console.log('The data is ' + body)
-          // 第四步：将响应结果转发给浏览器
-          response.end(body)
-        })
-      }
-    )
-    .end()
-})
-server.listen(3000, () => {
-  console.log('The proxyServer is running at http://localhost:3000')
-})" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs typescript"><code><span class="hljs-comment">// server1.js 代理服务器(http://localhost:3000)</span>
-<span class="hljs-keyword">const</span> http = <span class="hljs-built_in">require</span>(<span class="hljs-string">'http'</span>)
-<span class="hljs-comment">// 第一步：接受客户端请求</span>
-<span class="hljs-keyword">const</span> server = http.createServer(<span class="hljs-function">(<span class="hljs-params">request, response</span>) =&gt;</span> {
-  <span class="hljs-comment">// 代理服务器，直接和浏览器直接交互，需要设置CORS 的首部字段</span>
-  response.writeHead(<span class="hljs-number">200</span>, {
-    <span class="hljs-string">'Access-Control-Allow-Origin'</span>: <span class="hljs-string">'*'</span>,
-    <span class="hljs-string">'Access-Control-Allow-Methods'</span>: <span class="hljs-string">'*'</span>,
-    <span class="hljs-string">'Access-Control-Allow-Headers'</span>: <span class="hljs-string">'Content-Type'</span>
-  })
-  <span class="hljs-comment">// 第二步：将请求转发给服务器</span>
-  <span class="hljs-keyword">const</span> proxyRequest = http
-    .request(
-      {
-        host: <span class="hljs-string">'127.0.0.1'</span>,
-        port: <span class="hljs-number">4000</span>,
-        url: <span class="hljs-string">'/'</span>,
-        method: request.method,
-        headers: request.headers
-      },
-      <span class="hljs-function"><span class="hljs-params">serverResponse</span> =&gt;</span> {
-        <span class="hljs-comment">// 第三步：收到服务器的响应</span>
-        <span class="hljs-keyword">var</span> body = <span class="hljs-string">''</span>
-        serverResponse.on(<span class="hljs-string">'data'</span>, <span class="hljs-function"><span class="hljs-params">chunk</span> =&gt;</span> {
-          body += chunk
-        })
-        serverResponse.on(<span class="hljs-string">'end'</span>, <span class="hljs-function"><span class="hljs-params">()</span> =&gt;</span> {
-          <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'The data is '</span> + body)
-          <span class="hljs-comment">// 第四步：将响应结果转发给浏览器</span>
-          response.end(body)
-        })
-      }
-    )
-    .end()
-})
-server.listen(<span class="hljs-number">3000</span>, <span class="hljs-function"><span class="hljs-params">()</span> =&gt;</span> {
-  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'The proxyServer is running at http://localhost:3000'</span>)
-})</code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// server2.js(http://localhost:4000)
-const http = require('http')
-const data = { title: 'fontend', password: '123456' }
-const server = http.createServer((request, response) => {
-  if (request.url === '/') {
-    response.end(JSON.stringify(data))
-  }
-})
-server.listen(4000, () => {
-  console.log('The server is running at http://localhost:4000')
-})" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs typescript"><code><span class="hljs-comment">// server2.js(http://localhost:4000)</span>
-<span class="hljs-keyword">const</span> http = <span class="hljs-built_in">require</span>(<span class="hljs-string">'http'</span>)
-<span class="hljs-keyword">const</span> data = { title: <span class="hljs-string">'fontend'</span>, password: <span class="hljs-string">'123456'</span> }
-<span class="hljs-keyword">const</span> server = http.createServer(<span class="hljs-function">(<span class="hljs-params">request, response</span>) =&gt;</span> {
-  <span class="hljs-keyword">if</span> (request.url === <span class="hljs-string">'/'</span>) {
-    response.end(<span class="hljs-built_in">JSON</span>.stringify(data))
-  }
-})
-server.listen(<span class="hljs-number">4000</span>, <span class="hljs-function"><span class="hljs-params">()</span> =&gt;</span> {
-  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'The server is running at http://localhost:4000'</span>)
-})</code></pre>
-<p>上述代码经过两次跨域，值得注意的是浏览器向代理服务器发送请求，也遵循同源策略，最后在index.html文件打印出<code>{"title":"fontend","password":"123456"}</code></p>
-<h3 id="item-3-8">6.nginx反向代理</h3>
-<p>实现原理类似于Node中间件代理，需要你搭建一个中转nginx服务器，用于转发请求。</p>
-<p>使用nginx反向代理实现跨域，是最简单的跨域方式。只需要修改nginx的配置即可解决跨域问题，支持所有浏览器，支持session，不需要修改任何代码，并且不会影响服务器性能。</p>
-<p>实现思路：通过nginx配置一个代理服务器（域名与domain1相同，端口不同）做跳板机，反向代理访问domain2接口，并且可以顺便修改cookie中domain信息，方便当前域cookie写入，实现跨域登录。</p>
-<p>先下载<a href="http://nginx.org/en/download.html" rel="nofollow noreferrer" target="_blank">nginx</a>，然后将nginx目录下的nginx.conf修改如下:</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// proxy服务器
-server {
-    listen       81;
-    server_name  www.domain1.com;
-    location / {
-        proxy_pass   http://www.domain2.com:8080;  #反向代理
-        proxy_cookie_domain www.domain2.com www.domain1.com; #修改cookie里域名
-        index  index.html index.htm;
-
-        # 当用webpack-dev-server等中间件代理接口访问nignx时，此时无浏览器参与，故没有同源限制，下面的跨域配置可不启用
-        add_header Access-Control-Allow-Origin http://www.domain1.com;  #当前端只跨域不带cookie时，可为*
-        add_header Access-Control-Allow-Credentials true;
-    }
-}" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs properties"><code><span class="hljs-meta">//</span> <span class="hljs-string">proxy服务器</span>
-<span class="hljs-attr">server</span> <span class="hljs-string">{</span>
-    <span class="hljs-attr">listen</span>       <span class="hljs-string">81;</span>
-    <span class="hljs-attr">server_name</span>  <span class="hljs-string">www.domain1.com;</span>
-    <span class="hljs-attr">location</span> <span class="hljs-string">/ {</span>
-        <span class="hljs-attr">proxy_pass</span>   <span class="hljs-string">http://www.domain2.com:8080;  #反向代理</span>
-        <span class="hljs-attr">proxy_cookie_domain</span> <span class="hljs-string">www.domain2.com www.domain1.com; #修改cookie里域名</span>
-        <span class="hljs-attr">index</span>  <span class="hljs-string">index.html index.htm;</span>
-<span class="hljs-comment">
-        # 当用webpack-dev-server等中间件代理接口访问nignx时，此时无浏览器参与，故没有同源限制，下面的跨域配置可不启用</span>
-        <span class="hljs-attr">add_header</span> <span class="hljs-string">Access-Control-Allow-Origin http://www.domain1.com;  #当前端只跨域不带cookie时，可为*</span>
-        <span class="hljs-attr">add_header</span> <span class="hljs-string">Access-Control-Allow-Credentials true;</span>
-    <span class="hljs-attr">}</span>
-<span class="hljs-attr">}</span></code></pre>
-<p>最后通过命令行<code>nginx -s reload</code>启动nginx</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// index.html
-var xhr = new XMLHttpRequest();
-// 前端开关：浏览器是否读写cookie
-xhr.withCredentials = true;
-// 访问nginx中的代理服务器
-xhr.open('get', 'http://www.domain1.com:81/?user=admin', true);
-xhr.send();" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs actionscript"><code><span class="hljs-comment">// index.html</span>
-<span class="hljs-keyword">var</span> xhr = <span class="hljs-keyword">new</span> XMLHttpRequest();
-<span class="hljs-comment">// 前端开关：浏览器是否读写cookie</span>
-xhr.withCredentials = <span class="hljs-literal">true</span>;
-<span class="hljs-comment">// 访问nginx中的代理服务器</span>
-xhr.open(<span class="hljs-string">'get'</span>, <span class="hljs-string">'http://www.domain1.com:81/?user=admin'</span>, <span class="hljs-literal">true</span>);
-xhr.send();</code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// server.js
-var http = require('http');
-var server = http.createServer();
-var qs = require('querystring');
-server.on('request', function(req, res) {
-    var params = qs.parse(req.url.substring(2));
-    // 向前台写cookie
-    res.writeHead(200, {
-        'Set-Cookie': 'l=a123456;Path=/;Domain=www.domain2.com;HttpOnly'   // HttpOnly:脚本无法读取
-    });
-    res.write(JSON.stringify(params));
-    res.end();
-});
-server.listen('8080');
-console.log('Server is running at port 8080...');" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code><span class="hljs-comment">// server.js</span>
-<span class="hljs-keyword">var</span> http = <span class="hljs-built_in">require</span>(<span class="hljs-string">'http'</span>);
-<span class="hljs-keyword">var</span> server = http.createServer();
-<span class="hljs-keyword">var</span> qs = <span class="hljs-built_in">require</span>(<span class="hljs-string">'querystring'</span>);
-server.on(<span class="hljs-string">'request'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">req, res</span>) </span>{
-    <span class="hljs-keyword">var</span> params = qs.parse(req.url.substring(<span class="hljs-number">2</span>));
-    <span class="hljs-comment">// 向前台写cookie</span>
-    res.writeHead(<span class="hljs-number">200</span>, {
-        <span class="hljs-string">'Set-Cookie'</span>: <span class="hljs-string">'l=a123456;Path=/;Domain=www.domain2.com;HttpOnly'</span>   <span class="hljs-comment">// HttpOnly:脚本无法读取</span>
-    });
-    res.write(<span class="hljs-built_in">JSON</span>.stringify(params));
-    res.end();
-});
-server.listen(<span class="hljs-string">'8080'</span>);
-<span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Server is running at port 8080...'</span>);</code></pre>
-<h3 id="item-3-9">7.window.name + iframe</h3>
-<p>window.name属性的独特之处：name值在不同的页面（甚至不同域名）加载后依旧存在，并且可以支持非常长的 name 值（2MB）。</p>
-<p>其中a.html和b.html是同域的，都是<code>http://localhost:3000</code>;而c.html是<code>http://localhost:4000</code></p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text=" // a.html(http://localhost:3000/b.html)
-  <iframe src=&quot;http://localhost:4000/c.html&quot; frameborder=&quot;0&quot; onload=&quot;load()&quot; id=&quot;iframe&quot;></iframe>
-  <script>
-    let first = true
-    // onload事件会触发2次，第1次加载跨域页，并留存数据于window.name
-    function load() {
-      if(first){
-      // 第1次onload(跨域页)成功后，切换到同域代理页面
-        let iframe = document.getElementById('iframe');
-        iframe.src = 'http://localhost:3000/b.html';
-        first = false;
-      }else{
-      // 第2次onload(同域b.html页)成功后，读取同域window.name中数据
-        console.log(iframe.contentWindow.name);
-      }
-    }
-  </script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code> // a.html(http://localhost:3000/b.html)
-  <span class="hljs-tag">&lt;<span class="hljs-name">iframe</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"http://localhost:4000/c.html"</span> <span class="hljs-attr">frameborder</span>=<span class="hljs-string">"0"</span> <span class="hljs-attr">onload</span>=<span class="hljs-string">"load()"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"iframe"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">iframe</span>&gt;</span>
-  <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-    <span class="hljs-keyword">let</span> first = <span class="hljs-literal">true</span>
-    <span class="hljs-comment">// onload事件会触发2次，第1次加载跨域页，并留存数据于window.name</span>
-    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">load</span>(<span class="hljs-params"></span>) </span>{
-      <span class="hljs-keyword">if</span>(first){
-      <span class="hljs-comment">// 第1次onload(跨域页)成功后，切换到同域代理页面</span>
-        <span class="hljs-keyword">let</span> iframe = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'iframe'</span>);
-        iframe.src = <span class="hljs-string">'http://localhost:3000/b.html'</span>;
-        first = <span class="hljs-literal">false</span>;
-      }<span class="hljs-keyword">else</span>{
-      <span class="hljs-comment">// 第2次onload(同域b.html页)成功后，读取同域window.name中数据</span>
-        <span class="hljs-built_in">console</span>.log(iframe.contentWindow.name);
-      }
-    }
-  </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<p>b.html为中间代理页，与a.html同域，内容为空。</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text=" // c.html(http://localhost:4000/c.html)
-  <script>
-    window.name = '我不爱你'  
-  </script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code> // c.html(http://localhost:4000/c.html)
-  <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-    <span class="hljs-built_in">window</span>.name = <span class="hljs-string">'我不爱你'</span>  
-  </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<p>总结：通过iframe的src属性由外域转向本地域，跨域数据即由iframe的window.name从外域传递到本地域。这个就巧妙地绕过了浏览器的跨域访问限制，但同时它又是安全操作。</p>
-<h3 id="item-3-10">8.location.hash +  iframe</h3>
-<p>实现原理： a.html欲与c.html跨域相互通信，通过中间页b.html来实现。 三个页面，不同域之间利用iframe的location.hash传值，相同域之间直接js访问来通信。</p>
-<p>具体实现步骤：一开始a.html给c.html传一个hash值，然后c.html收到hash值后，再把hash值传递给b.html，最后b.html将结果放到a.html的hash值中。<br>同样的，a.html和b.html是同域的，都是<code>http://localhost:3000</code>;而c.html是<code>http://localhost:4000</code></p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text=" // a.html
-  <iframe src=&quot;http://localhost:4000/c.html#iloveyou&quot;></iframe>
-  <script>
-    window.onhashchange = function () { //检测hash的变化
-      console.log(location.hash);
-    }
-  </script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code> // a.html
-  <span class="hljs-tag">&lt;<span class="hljs-name">iframe</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"http://localhost:4000/c.html#iloveyou"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">iframe</span>&gt;</span>
-  <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-    <span class="hljs-built_in">window</span>.onhashchange = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) </span>{ <span class="hljs-comment">//检测hash的变化</span>
-      <span class="hljs-built_in">console</span>.log(location.hash);
-    }
-  </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text=" // b.html
-  <script>
-    window.parent.parent.location.hash = location.hash 
-    //b.html将结果放到a.html的hash值中，b.html可通过parent.parent访问a.html页面
-  </script>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code> // b.html
-  <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-    <span class="hljs-built_in">window</span>.parent.parent.location.hash = location.hash 
-    <span class="hljs-comment">//b.html将结果放到a.html的hash值中，b.html可通过parent.parent访问a.html页面</span>
-  </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text=" // c.html
- console.log(location.hash);
-  let iframe = document.createElement('iframe');
-  iframe.src = 'http://localhost:3000/b.html#idontloveyou';
-  document.body.appendChild(iframe);" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs javascript"><code> <span class="hljs-comment">// c.html</span>
- <span class="hljs-built_in">console</span>.log(location.hash);
-  <span class="hljs-keyword">let</span> iframe = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'iframe'</span>);
-  iframe.src = <span class="hljs-string">'http://localhost:3000/b.html#idontloveyou'</span>;
-  <span class="hljs-built_in">document</span>.body.appendChild(iframe);</code></pre>
-<h3 id="item-3-11">9.document.domain + iframe</h3>
-<p><strong>该方式只能用于二级域名相同的情况下，比如 <code>a.test.com</code> 和 <code>b.test.com</code> 适用于该方式</strong>。<br>只需要给页面添加 <code>document.domain ='test.com'</code> 表示二级域名都相同就可以实现跨域。</p>
-<p>实现原理：两个页面都通过js强制设置document.domain为基础主域，就实现了同域。</p>
-<p>我们看个例子：页面<code>a.zf1.cn:3000/a.html</code>获取页面<code>b.zf1.cn:3000/b.html</code>中a的值</p>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// a.html
-<body>
- helloa
-  <iframe src=&quot;http://b.zf1.cn:3000/b.html&quot; frameborder=&quot;0&quot; onload=&quot;load()&quot; id=&quot;frame&quot;></iframe>
-  <script>
-    document.domain = 'zf1.cn'
-    function load() {
-      console.log(frame.contentWindow.a);
-    }
-  </script>
-</body>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code>// a.html
-<span class="hljs-tag">&lt;<span class="hljs-name">body</span>&gt;</span>
- helloa
-  <span class="hljs-tag">&lt;<span class="hljs-name">iframe</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"http://b.zf1.cn:3000/b.html"</span> <span class="hljs-attr">frameborder</span>=<span class="hljs-string">"0"</span> <span class="hljs-attr">onload</span>=<span class="hljs-string">"load()"</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"frame"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">iframe</span>&gt;</span>
-  <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-    <span class="hljs-built_in">document</span>.domain = <span class="hljs-string">'zf1.cn'</span>
-    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">load</span>(<span class="hljs-params"></span>) </span>{
-      <span class="hljs-built_in">console</span>.log(frame.contentWindow.a);
-    }
-  </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">body</span>&gt;</span></code></pre>
-<div class="widget-codetool" style="display:none;">
-        <div class="widget-codetool--inner">
-        <span class="selectCode code-tool" data-toggle="tooltip" data-placement="top" title="" data-original-title="全选"></span>
-        <span type="button" class="copyCode code-tool" data-toggle="tooltip" data-placement="top" data-clipboard-text="// b.html
-<body>
-   hellob
-   <script>
-     document.domain = 'zf1.cn'
-     var a = 100;
-   </script>
-</body>" title="" data-original-title="复制"></span>
-        </div>
-        </div><pre class="hljs xml"><code>// b.html
-<span class="hljs-tag">&lt;<span class="hljs-name">body</span>&gt;</span>
-   hellob
-   <span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
-     <span class="hljs-built_in">document</span>.domain = <span class="hljs-string">'zf1.cn'</span>
-     <span class="hljs-keyword">var</span> a = <span class="hljs-number">100</span>;
-   </span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span>
-<span class="hljs-tag">&lt;/<span class="hljs-name">body</span>&gt;</span></code></pre>
-<h2 id="item-4">三、总结</h2>
-<ul>
-<li>CORS支持所有类型的HTTP请求，是跨域HTTP请求的根本解决方案</li>
-<li>JSONP只支持GET请求，JSONP的优势在于支持老式浏览器，以及可以向不支持CORS的网站请求数据。</li>
-<li>不管是Node中间件代理还是nginx反向代理，主要是通过同源策略对服务器不加限制。</li>
-<li>日常工作中，用得比较多的跨域方案是cors和nginx反向代理</li>
-</ul>
-<p><strong>给大家推荐一个好用的BUG监控工具<a href="https://www.fundebug.com/?utm_source=liao" rel="nofollow noreferrer" target="_blank">Fundebug</a>，欢迎免费试用！</strong></p>
-<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000018090213?w=2800&amp;h=800" alt="" title=""></span></p>
-<h2 id="item-5">参考文章</h2>
-<ul>
-<li><a href="http://www.ruanyifeng.com/blog/2016/04/cors.html" rel="nofollow noreferrer" target="_blank">跨域资源共享 CORS 详解</a></li>
-<li><a href="https://juejin.im/book/5bdc715fe51d454e755f75ef/section/5bdc71fbf265da6128599324" rel="nofollow noreferrer" target="_blank">前端面试之道</a></li>
-<li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Window/postMessage" rel="nofollow noreferrer" target="_blank">window.postMessage</a></li>
-<li><a href="https://segmentfault.com/a/1190000011145364">前端常见跨域解决方案（全）</a></li>
-<li><a href="https://juejin.im/post/5afd79aa6fb9a07ac162a540" rel="nofollow noreferrer" target="_blank">深入跨域问题(4) - 利用代理解决跨域</a></li>
-</ul>
-
-                            </article>
+				<div class="postmetadata alt">
+							<span class="post_tag">标签： <a href="https://www.zhangxinxu.com/wordpress/tag/bfc/" rel="tag">BFC</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/displayinline-block/" rel="tag">display:inline-block</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/displaytable-cell/" rel="tag">display:table-cell</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/inline-block/" rel="tag">inline-block</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/overflowhidden/" rel="tag">overflow:hidden</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/table-cell/" rel="tag">table-cell</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/%e5%b8%83%e5%b1%80/" rel="tag">布局</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/%e6%b5%81%e5%8a%a8%e6%80%a7%e5%b8%83%e5%b1%80/" rel="tag">流动性布局</a>, <a href="https://www.zhangxinxu.com/wordpress/tag/%e8%87%aa%e9%80%82%e5%ba%94%e5%b8%83%e5%b1%80/" rel="tag">自适应布局</a></span>		</div>				
+	</div>
+</div>
