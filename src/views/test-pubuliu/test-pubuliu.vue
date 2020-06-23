@@ -1,8 +1,15 @@
 <template>
     <div class="test-pubuliu">
-        <div v-for="(item, index) in list" :key="index">
-            <img class="img" :src="item" alt="">
+        <div class="p">
+            <div v-for="(item, index) in list" :key="index">
+                <img class="img" :src="item" alt="">
+            </div>
         </div>
+        <div v-for="(item, index) in list" :key="index + 'aa'">
+            <img :src="item" alt="" >
+        </div>
+        
+        <div id="bottom"></div>
     </div>
 </template>
 
@@ -28,14 +35,22 @@ export default {
 <style lang="scss" scoped>
 .test-pubuliu {
     width: 220px;
-    div {
-        width: 100px;
-        border: 1px solid #000;
+    height: 100vh;
+    overflow: scroll;
+    .p {
+        column-count: 2;
+        column-gap: 20px;
+        .img {
+            width: 100px;
+        }
+        div {
+            width: 100px;
+            border: 1px solid #000;
+        }
     }
-    column-count: 2;
-    column-gap: 20px;
-    .img {
-        width: 100px;
+    #bottom {
+        height: 20px;
+        background: red;
     }
 }
 </style>
