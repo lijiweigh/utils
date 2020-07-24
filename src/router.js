@@ -43,12 +43,12 @@ export default new Router({
         component: () =>
           import("./views/postMessage/child")
     },
-    {
-        path: "/webworkers",
-        name: "webworkers",
-        component: () =>
-          import("./views/webworkers/index.vue")
-    },
+    // {
+    //     path: "/webworkers",
+    //     name: "webworkers",
+    //     component: () =>
+    //       import("./views/webworkers/index.vue")
+    // },
     {
         path: "/test",
         name: "test",
