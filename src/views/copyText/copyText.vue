@@ -5,7 +5,7 @@
             <button @click="copyInput">复制</button>
         </div>
         <div>
-            <div ref="div">啊啊士大夫健身房可视对讲风口浪尖风口浪尖</div>
+            <div ref="div" contenteditable>啊啊士大夫健身房可视对讲风口浪尖风口浪尖</div>
             <button @click="copyDiv">复制</button>
         </div>
         <div>
@@ -15,6 +15,7 @@
 </template>
 
 <script>
+import copy from "../../../utils/haha/copy"
 export default {
     name: "copyText",
     methods: {
@@ -25,19 +26,20 @@ export default {
         },
         copyDiv() {
             let v = this.$refs.div.innerHTML
-            let input = document.createElement("input")
-            input.setAttribute("readonly", true)
-            input.setAttribute("value", v)
-            document.body.appendChild(input)
-            input.style.position = "fixed"
-            input.style.left = 0
-            input.style.top = 0
-            input.style.zIndex = -1
-            input.focus()
-            input.select()
-            input.setSelectionRange(0, 9999999)
-            document.execCommand("copy")
-            document.body.removeChild(input)
+            copy(v)
+            // let input = document.createElement("input")
+            // input.setAttribute("readonly", true)
+            // input.setAttribute("value", v)
+            // document.body.appendChild(input)
+            // input.style.position = "fixed"
+            // input.style.left = 0
+            // input.style.top = 0
+            // input.style.zIndex = -1
+            // input.focus()
+            // input.select()
+            // input.setSelectionRange(0, 9999999)
+            // document.execCommand("copy")
+            // document.body.removeChild(input)
         },
     }
 }

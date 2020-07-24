@@ -1,3 +1,5 @@
+const { TimeSelect } = require("element-ui");
+
 function normal (ms, interval = 1000) {
     let id
     let count = 0
@@ -78,5 +80,46 @@ function exact2 (ms, interval = 1000) {
             id = setTimeout(start, interval);
         }
 
+    }
+}
+
+class CountDown {
+    constructor({end, interval = 1000, immediate = true} = {}, cb = () => {}, onEnd = () => {}) {
+        this.id = null
+        this.pre = 0
+        this.end = +new Date(end)
+        this.interval = interval
+        this.cb = cb
+        this.onEnd = onEnd
+        
+    }
+    start() {
+        if(this.immediate) {
+            this.cb()
+        }
+        this.run()
+    }
+    run() {
+        let now = +new Date()
+        if(now >= this.end) {
+            this.onEnd()
+            return
+        }
+        this.timeDiff = now - this.pre
+        let next = 2 * this.interval - this.timeDiff
+        if(next < 0) {
+            next = 0
+        }
+        if(next > this.interval) {
+            next = this.interval
+        }
+        
+        this.id = setTimeout(() => {
+            this.cb
+            this.run()
+        }, next);
+    }
+    stop() {
+        clearTimeout(this.id)
     }
 }
