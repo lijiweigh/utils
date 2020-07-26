@@ -5,7 +5,7 @@
             <button @click="copyInput">复制</button>
         </div>
         <div>
-            <div ref="div" contenteditable>啊啊士大夫健身房可视对讲风口浪尖风口浪尖</div>
+            <div ref="div" contenteditable :class="$style.orange">啊啊士大夫健身房可视对讲风口浪尖风口浪尖</div>
             <button @click="copyDiv">复制</button>
         </div>
         <div>
@@ -16,8 +16,14 @@
 
 <script>
 import copy from "../../../utils/haha/copy"
+// import "./1.module.css"
+
 export default {
     name: "copyText",
+    mounted() {
+        console.log(this.$route.matched)
+        console.log(this.$style)
+    },
     methods: {
         copyInput() {
             this.$refs.input.select()
@@ -46,7 +52,14 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import url("./1.module.css");
 .copyText {
+    // background: url("~@/assets/1.jpg");
+}
+</style>
 
+<style module>
+.orange {
+    color: orange;
 }
 </style>

@@ -87,7 +87,8 @@ export default new Router({
     {
         path: "/copyText",
         name: "copyText",
-        component: () => import("./views/copyText/copyText")
+        component: () => import("./views/copyText/copyText"),
+        children: []
     },
     {
         path: "/online-offline",
