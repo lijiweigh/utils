@@ -1,5 +1,11 @@
+const SpeedMeasurePlugin = require('speed-measure-webpack-plugin')
+const smp = new SpeedMeasurePlugin()
+const hardSourceWebpackPlugin = require("hard-source-webpack-plugin")
 module.exports = {
     lintOnSave: false,
+    // configureWebpack: smp.wrap({
+    //     // plugins: [new BundleAnalyzerPlugin()]
+    // }),
     chainWebpack: config => {
         // config
         //   .module
@@ -27,17 +33,21 @@ module.exports = {
         //       options: { inline: true, name: 'workerName.[hash].js' }
         //     }
         //   })
+        // config
+        //     .module
+        //     .rule("web-worders")
+        //     .test(/\.worker\.js$/)
+        //     .use("worker-loader")
+        //     .loader("worker-loader")
+        //     .options({
+        //         inline: true, 
+        //         name: `./js/webworker.[hash].js`
+        //     })
         config
-            .module
-            .rule("web-worders")
-            .test(/\.worker\.js$/)
-            .use("worker-loader")
-            .loader("worker-loader")
-            .options({
-                inline: true, 
-                name: `./js/webworker.[hash].js`
-            })
-        
-
+            .plugin("hard-resource")
+            .use(hardSourceWebpackPlugin, [{}])
+        config
+            .optimization
+                .set("moduleIds", "hashed")
     }
 }
