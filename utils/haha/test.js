@@ -62,3 +62,62 @@ console.log("111111");
 })()
 
 console.log("33333")
+
+
+function deepClone(obj) {
+    if(!(obj instanceof Object)) {
+        return obj
+    }
+    let result = {}
+    if(obj instanceof Array) {
+        result = []
+    }
+    for(let key of Object.keys(obj)) {
+        let v = obj[key]
+        if(v instanceof Object) {
+            result[key] = deepClone(v)
+        } else {
+            result[key] = v
+        }
+    }
+    return result
+}
+
+function deepClone2(obj) {
+    if(!(obj instanceof Object)) {
+        return obj
+    }
+    let cache = new WeakMap()
+    let result = obj instanceof Array ? [] : {}
+    let stack = [{
+        parent: result,
+        key: undefined,
+        data: obj
+    }]
+    while(stack.length) {
+        let {parent, key, data} = stack.pop()
+        let res = parent
+        if(key !== undefined) {
+            res = parent[key] = data instanceof Array ? [] : {}
+        }
+        let u = cache.get(data)
+        if(u) {
+            parent[key] = u
+            continue
+        }
+        cache.set(data, res)
+        let keys = Object.keys(data).concat(Object.getOwnPropertySymbols(data))
+        for(let k of keys) {
+            if(data[k] instanceof Object) {
+                stack.push({
+                    parent: res,
+                    key: k,
+                    data: data[k]
+                })
+            } else {
+                res[k] = data[k]
+            }
+        }
+    }
+    return result
+}
