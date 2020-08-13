@@ -54,14 +54,14 @@
 
 // console.log(this)
 
-console.log("111111");
+// console.log("111111");
 
-(async () => {
-    await Promise.resolve()
-    console.log("22222")
-})()
+// (async () => {
+//     await Promise.resolve()
+//     console.log("22222")
+// })()
 
-console.log("33333")
+// console.log("33333")
 
 
 function deepClone(obj) {
@@ -121,3 +121,27 @@ function deepClone2(obj) {
     }
     return result
 }
+
+let p = new Promise((resolve, reject) => {
+    console.time("aaa")
+	setTimeout(() => {
+		resolve(
+			new Promise((resolve, reject) => {
+				setTimeout(() => {
+					resolve(
+						new Promise((resolve, reject) => {
+							setTimeout(() => {
+								resolve(6000)
+							}, 3000)
+						})
+					)
+				}, 2000)
+			})
+		)
+	}, 1000)
+})
+
+p.then((data) => {
+    console.timeEnd("aaa")
+	console.log(data)
+})
