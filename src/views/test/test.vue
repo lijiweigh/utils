@@ -23,6 +23,7 @@
 import myInput from "@/components/element/input"
 import myTable from "@/components/element/table"
 import myTableColumn from "@/components/element/table-column"
+import jsonp from "../../../utils/js/jsonp"
 
 export default {
     name: "my-ele-test",
@@ -60,7 +61,11 @@ export default {
     },
     mounted() {
         // console.log(this.$refs.myInput.eleElement)
-
+        console.log("mounted")
+        jsonp("https://www.baidu.com/sugrec?pre=1&p=3&ie=utf-8&json=1&prod=pc&from=pc_web&wd=GTA5&req=2&csor=4&pwd=121&_=1597215314884", {}, {param: "cb"})
+            .then(res => {
+                console.log(res)
+            })
     },
     watch: {
         value(v) {
