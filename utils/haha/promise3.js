@@ -230,26 +230,26 @@ MyPromise.defer = MyPromise.deferred = function() {
 
 module.exports = MyPromise
 
-let p = new MyPromise((resolve, reject) => {
-    console.time("aaa")
-	setTimeout(() => {
-		resolve(
-			new MyPromise((resolve, reject) => {
-				setTimeout(() => {
-					resolve(
-						new MyPromise((resolve, reject) => {
-							setTimeout(() => {
-								resolve(6000)
-							}, 3000)
-						})
-					)
-				}, 2000)
-			})
-		)
-	}, 1000)
-})
+// let p = new MyPromise((resolve, reject) => {
+//     console.time("aaa")
+// 	setTimeout(() => {
+// 		resolve(
+// 			new MyPromise((resolve, reject) => {
+// 				setTimeout(() => {
+// 					resolve(
+// 						new MyPromise((resolve, reject) => {
+// 							setTimeout(() => {
+// 								resolve(6000)
+// 							}, 3000)
+// 						})
+// 					)
+// 				}, 2000)
+// 			})
+// 		)
+// 	}, 1000)
+// })
 
-p.then((data) => {
-    console.timeEnd("aaa")
-	console.log(data)
-})
+// p.then((data) => {
+//     console.timeEnd("aaa")
+// 	console.log(data)
+// })
