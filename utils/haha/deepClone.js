@@ -1,5 +1,7 @@
 // 递归方式
 function deepClone(obj) {
+    // if(obj instanceof RegExp) return new RegExp(obj);
+    // if(obj instanceof Date) return new Date(obj);
     if(!(obj instanceof Object)) {
         return obj
     }
@@ -131,6 +133,8 @@ function deepClone3(obj) {
 }
 
 function deepClone4(obj) {
+    // if(obj instanceof RegExp) return new RegExp(obj);
+    // if(obj instanceof Date) return new Date(obj);
     if(!(obj instanceof Object)) {
         return obj
     }

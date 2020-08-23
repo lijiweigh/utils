@@ -11,7 +11,11 @@ function create () {
     let obj = Object.create (Con.prototype)
 
     // 绑定this
-    Con.apply (obj, [...arguments])
+    let result = Con.apply (obj, [...arguments])
+
+    if(typeof result === "object" || typeof result === "function") {
+        return result
+    }
 
     // 返回
     return obj

@@ -190,4 +190,6 @@ MyPromise.defer = MyPromise.deferred = function() {
 	return dfd
 }
 
+// npx promises-aplus-tests testPromise.js
+
 module.exports = MyPromise
