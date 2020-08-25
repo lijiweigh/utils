@@ -13,13 +13,15 @@ let options = {
 let html = ""
 
 const r = fs.createReadStream("./source", {encoding: "utf-8"})
-r.on("data", data => {
-    html = data
-    let md = h2m(html, options)
-    let ws = fs.createWriteStream(path.resolve(__dirname, "result.md"))
-    ws.write(md, "UTF8")
-    ws.end()
-})
+let ws = fs.createWriteStream(path.resolve(__dirname, "result.md"))
+r.pipe(ws)
+// r.on("data", data => {
+//     html = data
+//     let md = h2m(html, options)
+//     let ws = fs.createWriteStream(path.resolve(__dirname, "result.md"))
+//     ws.write(md, "UTF8")
+//     ws.end()
+// })
 
 // let md = h2m(html, options)
 
