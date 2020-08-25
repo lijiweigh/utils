@@ -12,7 +12,7 @@ let options = {
 
 let html = ""
 
-const r = fs.createReadStream("source", {encoding: "utf-8"})
+const r = fs.createReadStream("./source", {encoding: "utf-8"})
 r.on("data", data => {
     html = data
     let md = h2m(html, options)

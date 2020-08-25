@@ -1,286 +1,213 @@
-## CSS深入理解流体特性和BFC特性下多栏自适应布局
+型转换
+> 1.Number() 将任意类型的参数转换为数值类型
 
-这篇文章发布于 2015年02月12日，星期四，23:36，归类于 [CSS相关](https://www.zhangxinxu.com/wordpress/category/css/)。                        阅读 149581 次, 今日 13 次                        [59 条评论](#comments)
+规则如下:
 
- 
+- 如果是布尔值，true和false分别被转换为1和0
+- 如果是数字，返回自身
+- 如果是 null，返回 0
+- 如果是 undefined，返回 `NAN`
+- 如果是字符串，遵循以下规则:
 
-[2020年阿里最新面试题汇总免费领取](http://www.mawen.co/?utm_source=zxx-web-2020)
+1. 如果字符串中只包含数字(或者是 `0X` / `0x` 开头的十六进制数字字符串，允许包含正负号)，则将其转换为十进制
+2. 如果字符串中包含有效的浮点格式，将其转换为浮点数值
+3. 如果是空字符串，将其转换为0
+4. 如不是以上格式的字符串，均返回 `NaN`
 
-### 一、开篇之言
+- 如果是Symbol，抛出错误
+- 如果是对象，则调用对象的 `valueOf()` 方法，然后依据前面的规则转换返回的值。如果转换的结果是 `NaN` ，则调用对象的 `toString()` 方法，再次依照前面的规则转换返回的字符串值。
 
-要说web上实现两栏自适应布局的方法，一双手都数不过来。不知大家有没有细想过，为什么这些方法可以实现自适应布局呢？![image](https://mat1.gtimg.com/www/mb/images/face/32.gif)
+部分内置对象调用默认的 `valueOf` 的行为:
+对象返回值Array数组本身（对象类型）Boolean布尔值（原始类型）Date从 UTC 1970 年 1 月 1 日午夜开始计算，到所封装的日期所经过的毫秒数Function函数本身（对象类型）Number数字值（原始类型）Object对象本身（对象类型）String字符串值（原始类型）
 
-本文就将深入探讨下流体特性和BFC特性下的两栏自适应布局，还是针对传统布局。一些现代布局，如弹性盒子模型布局(Flexbox Layout)，格栅布局(Grid Layout)不在本文探讨之类。
+    Number('0111');//111Number('0X11')//17Number(null);//0Number('');//0Number('1a');//NaNNumber(-0X11);//-17
 
-> 有些人看了个标题，以及看了前面一两段，发现，都是我知道的概念嘛，什么流动性，什么BFC~~于是，就悻悻离开了。这就是我们常说的浮躁，保持一颗谦逊的心，细细阅读，你会发现，其中一定有你所没有关注过的地方，所谓三人行必有我师。没错，这句话就是写给你看的，同时也是自我内省与监督。
+> 2.parseInt(param, radix)
 
-### 二、块状元素的流体特性与自适应布局
+如果第一个参数传入的是字符串类型:
 
-**流体特性**
+1. 忽略字符串前面的空格，直至找到第一个非空字符，如果是空字符串，返回NaN
+2. 如果第一个字符不是数字符号或者正负号，返回NaN
+3. 如果第一个字符是数字/正负号，则继续解析直至字符串解析完毕或者遇到一个非数字符号为止
 
-块状水平元素，如`div`元素（下同），在默认情况下（非浮动、绝对定位等），水平方向会自动填满外部的容器；如果有`margin-left/margin-right`, `padding-left/padding-right`, `border-left-width/border-right-width`等，实际内容区域会响应变窄。
+如果第一个参数传入的Number类型:
 
-一图胜千言，一例胜千图。可参考下面例子，感受下`div`元素的流体特性：
+1. 数字如果是0开头，则将其当作八进制来解析(如果是一个八进制数)；如果以0x开头，则将其当作十六进制来解析
 
-图片宽度一直`width:100%`，依次点击3个按钮，结果随着`margin`, `padding`, `border`的出现，其可用宽度自动跟着减小，形成了自适应效果。就像放在容器中的水流一样，内容区域会随着`margin`, `padding`, `border`的出现自动填满剩余空间，这就是块状元素的流体特性。
+如果第一个参数是 null 或者是 undefined，或者是一个对象类型：
 
-**流体特性**
+1. 返回 NaN
 
-下面，我们稍微做一个调整，`div`距离容器左侧`margin``150`像素，里面的图片同样`100%`自适应内容区域。HTML如下：
+如果第一个参数是数组：
 
-    .flow-box {
-        width: 500px; background-color: #eee; overflow:auto; resize:horizontal;
-    }
-    .flow-content {
-        margin-left: 150px;
-    }
-    
+1. 去数组的第一个元素，按照上面的规则进行解析
 
-    <div class="flow-box">
-        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
-    </div>
-    
+如果第一个参数是Symbol类型：
 
-图片右下角有两道斜杠，我们可以resize拉伸（现代浏览器，且非移动访问），会发现，左侧永远150像素留白，而图片随着容器宽度变化而自适应变化了。
+1. 抛出错误
 
-此时，我们需要好好利用左侧150像素的留白间距，岂不是就可以实现两栏自适应效果！？
+如果指定radix参数，以radix为基数进行解析
 
-为了不影响原本的流体特性，我们可以使用破坏性属性，如浮动(float:left)，或者绝对定位(position:absolute)。
+    parseInt('0111');//111parseInt(0111);//八进制数 73parseInt('');//NaNparseInt('0X11');//17parseInt('1a')//1parseInt('a1');//NaNparseInt(['10aa','aaa']);//10parseInt([]);//NaN; parseInt(undefined);
 
-我们直接HTML如下调整即可：
+> parseFloat
 
-    <div class="flow-box">
-        <img src="mm1.jpg" width="128" style="float:left;">
-        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
-    </div>
-    
+规则和`parseInt`基本相同，接受一个Number类型或字符串，如果是字符串中，那么只有第一个小数点是有效的。
 
-    <div class="flow-box">
-        <img src="mm1.jpg" width="128" style="position:absolute;">
-        <div class="flow-content"><img src="mm1.jpg" width="100%" height="190"></div>
-    </div>
-    
+> toString()
 
-结果分别如下：
+规则如下:
 
-当然，你可以左侧有多个浮动，或者左浮动+右浮动。于是，我们不仅可以实现两栏自适应效果，多栏自适应效果也不在话下。
+- 如果是Number类型，输出数字字符串
+- 如果是 null 或者是 undefined，抛错
+- 如果是数组，那么将数组展开输出。空数组，返回`''`
+- 如果是对象，返回 `[object Object]`
+- 如果是Date, 返回日期的文字表示法
+- 如果是函数，输出对应的字符串(如下demo)
+- 如果是Symbol，输出Symbol字符串
 
-然而，利用块状元素流体特性实现的自适应布局有个不足，就是，我们需要知道浮动或绝对定位内容的尺寸。然后，流体内容才能有对应的`margin`或`padding`或`border`值进行位置修正。于是，问题来了，我们没法单纯使用一个公用的类名，类似`.clearfix`这样，整站通用。因为不同自适应场景的留白距离是不一样的。
+    letarry=[];letobj={a:1};letsym=Symbol(100);letdate=newDate();letfn=function(){console.log('稳住，我们能赢！')}letstr='hello world';console.log([].toString());// ''console.log([1,2,3,undefined,5,6].toString());//1,2,3,,5,6console.log(arry.toString());// 1,2,3console.log(obj.toString());// [object Object]console.log(date.toString());// Sun Apr 21 2019 16:11:39 GMT+0800 (CST)console.log(fn.toString());// function () {console.log('稳住，我们能赢！')}console.log(str.toString());// 'hello world'console.log(sym.toString());// Symbol(100)console.log(undefined.toString());// 抛错console.log(null.toString());// 抛错
 
-此时，我们可以利用块状元素的BFC特定实现更强大更智能的多栏自适应布局（本文重点）。
+> String()
 
-### 三、元素的BFC特性与自适应布局
+`String()` 的转换规则与 `toString()` 基本一致，最大的一点不同在于 `null` 和 `undefined`，使用 String 进行转换，null 和 undefined对应的是字符串 `'null'` 和 `'undefined'`
 
-**1. BFC元素简介与基本表现**
+> Boolean
 
-BFC全称”Block Formatting Context”, 中文为“块级格式化上下文”。啪啦啪啦特性什么的，一言难尽，大家可以自行去查找，我这里不详述，免得乱了主次，总之，记住这么一句话：BFC元素特性表现原则就是，内部子元素再怎么翻江倒海，翻云覆雨都不会影响外部的元素。所以，避免margin穿透啊，清除浮动什么的也好理解了。
+除了 undefined、 null、 false、 ''、 0(包括 +0，-0)、 NaN 转换出来是false，其它都是true.
 
-![image](https://image.zhangxinxu.com/image/blog/201502/inner-outer.png)
+**隐式类型转换**
 
-什么时候会触发BFC呢？常见的如下：
+> && 、|| 、 ! 、 if/while 的条件判断
 
-- `float`的值不为`none`。
-- `overflow`的值为`auto`,`scroll`或`hidden`。
-- `display`的值为`table-cell`, `table-caption`, `inline-block`中的任何一个。
-- `position`的值不为`relative`和`static`。
+需要将数据转换成 Boolean 类型，转换规则同 Boolean 强制类型转换
 
-BFC特性很多，而我们这里，只关心一个，和`float`元素做相邻兄弟时候的表现。
+> 运算符: + - * /
 
-如果是上面介绍的流体特性`div`, 当其和浮动元素当兄弟的时候，是覆盖的关系（可以脑补下文字环绕图片效果）。但是，元素BFC化后，本着“里面惊天抱诈（和谐）炸成鬼，外面依然泰然钓大鱼”的原则，自然是不会与浮动重叠的（你想啊，要是出来个`clear:both`还不跟外面浮动干上一架啊），因此，块状相邻，点击下面按钮感受下。
+`+` 号操作符，不仅可以用作数字相加，还可以用作字符串拼接。
 
-会发现，普通流体元素BFC后，为了和浮动元素不产生任何交集，顺着浮动边缘形成自己的封闭上下文。如下截图：
-![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-10_003132.png)
+仅当 `+` 号两边都是数字时，进行的是加法运算。如果两边都是字符串，直接拼接，无需进行隐式类型转换。
 
-同时，**元素原本的流体特性依然保留了**。哈，这个很重要，也就是，虽然不与浮动交集，自动退避浮动元素宽度的距离，但，本身作为普通元素的流动性依然存在，反映在布局上就是自动填满除去浮动内容以外的剩余空间。哟，这不就是自适应布局嘛！！
+除了上面的情况外，如果操作数是对象、数值或者布尔值，则调用toString()方法取得字符串值(toString转换规则)。对于 undefined 和 null，分别调用String()显式转换为字符串，然后再进行拼接。
 
-**2. BFC自适应布局模块间的间距**
+    console.log({}+10);//[object Object]10console.log([1,2,3,undefined,5,6]+10);//1,2,3,,5,610
 
-然而，模块过于亲密接触，可能不是我们想要的。一般而言，我们需要一点间距。
+`-`、`*`、`/` 操作符针对的是运算，如果操作值之一不是数值，则被隐式调用Number()函数进行转换。如果其中有一个转换除了为NaN，结果为NaN.
 
-说到间距，我们的第一反应就是`margin`. 于是，我们给BFC元素增加一个`margin-left:20px`, CSS代码如下：
+> 关系操作符: ==、>、< 、<=、>=
 
-    .float-left {
-        float: left;
-    }
-    .follow-content {
-        margin-left: 20px;
-        background-color: #cad5eb;
-        overflow: hidden;
-    }
+`>` , `<` ，`<=` ，`>=`
 
-结果……纳尼~ ![image](https://mat1.gtimg.com/www/mb/images/face/110.gif) 怎么还是像狗屁膏药贴在一起啊？？
-![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_001810.png)
+1. 如果两个操作值都是数值，则进行数值比较
+2. 如果两个操作值都是字符串，则比较字符串对应的字符编码值
+3. 如果有一方是Symbol类型，抛出错误
+4. 除了上述情况之外，都进行Number()进行类型转换，然后再进行比较。
 
-您可以狠狠地点击这里：[BFC元素增加一个margin无效demo](https://www.zhangxinxu.com/study/201502/flow-to-bfc-margin.html)
+**注：** NaN是非常特殊的值，它不和任何类型的值相等，包括它自己，同时它与任何类型的值比较大小时都返回false。
 
-实际上，这里的**margin并不是无效，而是值不够大**，鞭长莫及啊！
+    console.log(10>{});//返回false./** *{}.valueOf ---> {} *{}.toString() ---> '[object Object]' ---> NaN *NaN 和 任何类型比大小，都返回 false */
 
-![image](https://image.zhangxinxu.com/image/blog/201502/bianchangmoji.jpg)
+> 相等操作符：`==`
 
-用一个形象的Gif表示就是下面这样（点击播放-468K）：
-![image](https://image.zhangxinxu.com/image/blog/201910/kick-girl.gif)
+1. 如果类型相同，无需进行类型转换。
+2. 如果其中一个操作值是 null 或者是 undefined，那么另一个操作符必须为 null 或者 undefined 时，才返回 true，否则都返回 false.
+3. 如果其中一个是 Symbol 类型，那么返回 false.
+4. 两个操作值是否为 string 和 number，就会将字符串转换为 number
+5. 如果一个操作值是 boolean，那么转换成 number
+6. 如果一个操作值为 object 且另一方为 string、number 或者 symbol，是的话就会把 object 转为原始类型再进行判断(调用object的valueOf/toString方法进行转换)
 
-左侧浮动的图片就好比上面Gif图片中男孩的胳膊，妹子就是BFC元素，结果两人紧密接触。然后，`margin-left`就是妹子的胳膊个脚，虽然也甩出去了，可惜长度有限，于是，毫无影响。
+> 对象如何转换成原始数据类型
 
-如果按照上面的解释，那我们把`margin-left:20px`改成`margin-left:150px`就应该有间距了？![image](https://mat1.gtimg.com/www/mb/images/face/32.gif) 一试便知！
+如果部署了 [Symbol.toPrimitive] 接口，那么调用此接口，若返回的不是基础数据类型，跑出错误。
 
-    .float-left {
-        float: left;
-    }
-    .follow-content {
-        margin-left: 150px;
-        background-color: #cad5eb;
-        overflow: hidden;
-    }
+如果没有部署 [Symbol.toPrimitive] 接口，那么先返回 valueOf() 的值，若返回的不是基础类型的值，再返回 toString() 的值，若返回的不是基础类型的值， 则抛出异常。
 
-结果，当当当当：
-![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_003900.png)
+    //先调用 valueOf, 后调用 toStringletobj={[Symbol.toPrimitive](){return200;},valueOf(){return300;},toString(){return'Hello';}}//如果 valueOf 返回的不是基本数据类型，则会调用 toString， //如果 toString 返回的也不是基本数据类型，会抛出错误console.log(obj+200);//400
 
-**注意：**我这里举`margin`这个例子，不是让大家这样使用，只是为了让大家可以深入理解BFC元素与浮动元素混排的特性表现。实际开发，我们完全没有必要对BFC元素设置`margin`, 因为又回到了流体布局，明明是固定的15像素间距，但是，每个布局都要写一个不同的`margin`值，完全没有重用价值。
+[![image](https://camo.githubusercontent.com/738bdd3de5c5e57c92f8b4671784ce8a568325f9/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353834393332383738302664693d646464316631363166303135393766316538366166363838376630383561346126696d67747970653d30267372633d687474702533412532462532466d6d62697a2e717069632e636e2532466d6d62697a5f6a7067253246706c4149696139376d7439625147784d57344e64696376345a744239786a69623967795768705a64476961307a664c574b384e78734630456c5a4b507a475569625a796b43696136306773724d5064385078534e477576553972527725324636343025334677785f666d742533446a706567)](https://camo.githubusercontent.com/738bdd3de5c5e57c92f8b4671784ce8a568325f9/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353834393332383738302664693d646464316631363166303135393766316538366166363838376630383561346126696d67747970653d30267372633d687474702533412532462532466d6d62697a2e717069632e636e2532466d6d62697a5f6a7067253246706c4149696139376d7439625147784d57344e64696376345a744239786a69623967795768705a64476961307a664c574b384e78734630456c5a4b507a475569625a796b43696136306773724d5064385078534e477576553972527725324636343025334677785f666d742533446a706567)
 
-但是，间距部分的高潮来了！
+如果你有更好的答案或想法，欢迎在这题目对应的github下留言：[JS 类型转换的规则是什么？](https://github.com/YvetteLau/Blog/issues/16)
 
-我们可以使用浮动元素的`margin-right`或者`padding-right`轻松实现间距效果。间距是`20`像素，直接：
+---
 
-    .float-left {
-        float: left;
-        margin-right: 20px;
-    }
+### 8.简述下对 webWorker 的理解？
 
-与浮动元素的宽度是多少没有任何关系。不仅如此，我们还可以使用BFC元素的`padding-left`撑开间距（虽然`margin-left`作用鸡肋）。
+HTML5则提出了 Web Worker 标准，表示js允许多线程，但是子线程完全受主线程控制并且不能操作dom，只有主线程可以操作dom，所以js本质上依然是单线程语言。
 
-于是，我们可能就会有：
+web worker就是在js单线程执行的基础上开启一个子线程，进行程序处理，而不影响主线程的执行，当子线程执行完之后再回到主线程上，在这个过程中不影响主线程的执行。子线程与主线程之间提供了数据交互的接口postMessage和onmessage，来进行数据发送和接收。
 
-    .l { float: left; }
-    .ovh { overflow: hidden; }
-    
+    varworker=newWorker('./worker.js');//创建一个子线程worker.postMessage('Hello');worker.onmessage=function(e){console.log(e.data);//Hiworker.terminate();//结束线程};
 
-的自适应固定搭配。再配合[zxx.lib.css](https://github.com/zhangxinxu/zxx.lib.css)CSS样式库的`margin`和`padding`家族，快速布局可谓所向披靡。
+    //worker.jsonmessage=function(e){console.log(e.data);//HellopostMessage("Hi");//向主进程发送消息};
 
-**3. 与纯流体特性布局的优势**
+仅是最简示例代码，项目中通常是将一些耗时较长的代码，放在子线程中运行。
 
-BFC自适应布局优势我总结了下面2点：
+如果你有更好的答案或想法，欢迎在这题目对应的github下留言：[简述下对 webWorker 的理解](https://github.com/YvetteLau/Blog/issues/17)
 
-1. 自适应内容由于封闭，更健壮，容错性强。比方说，内部`clear:both`不会与兄弟`float`产生矛盾。而纯流体布局，`clear:both`会让后面内容无法和`float`元素在一个水平上，产生布局问题。
-2. 自适应内容自动填满浮动以为区域，无需关心浮动元素宽度，可以整站大规模应用。而纯流体布局，需要大小不确定的`margin`/`padding`等值撑开合适间距，无法CSS组件化。
+---
 
-如下效果，图片能大能小，布局依然良好：
+### 9.ES6模块和CommonJS模块的差异？
 
-而CSS代码就是非常简单的：
+1. 
+ES6模块在编译时，就能确定模块的依赖关系，以及输入和输出的变量。
 
-    .float-left {
-        float: left; margin-right: 20px; 
-    }
-    .bfc-content {
-        overflow: hidden; background-color: #beceeb;
-    }
+CommonJS 模块，运行时加载。
 
-可以说，有了BFC自适应布局，基本上没有了纯流体特性布局存在的价值。然而，只是理论上如此。如果，BFC自适应布局真那么吊炸天，那为何并没有口口相传呢？
+2. 
+ES6 模块自动采用严格模式，无论模块头部是否写了 `"use strict";` (严格模式有哪些限制？[//链接])
 
-那我们就得进一步深入理解了。
+3. 
+require 可以做动态加载，import 语句做不到，import 语句必须位于顶层作用域中。
 
-**4. BFC元素家族与自适应布局面面观**
+4. 
+ES6 模块中顶层的 this 指向 undefined，ommonJS 模块的顶层 this 指向当前模块。
 
-理论上，任何BFC元素和浮动搞基的时候，都可以实现自动填充的自适应布局。
+5. 
+CommonJS 模块输出的是一个值的拷贝，ES6 模块输出的是值的引用。
 
-但是，由于绝大多数的触发BFC的属性自身有一些古怪的特性，所以，实际操作的时候，能兼顾流体特性和BFC特性来实现无敌自适应布局的属性并不多。下面我们牵驴遛马一个一个瞅瞅（类似行为仅出1个代表示意，你懂的，如`float:left/right`）：
+CommonJS 模块输出的是值的拷贝，也就是说，一旦输出一个值，模块内部的变化就影响不到这个值。如：
 
-1. **float:left** 浮动元素本身BFC化，然而浮动元素有破坏性和包裹性，失去了元素本身的流体自适应性，因此，无法用来实现自动填满容器的自适应布局。不过，其因兼容性还算良好，与堆积木这种现实认知匹配，上手简单，因此在旧时代被大肆使用，也就是常说的“浮动布局”，也算阴差阳错开创了自己的一套布局。
-2. **position:absolute** 这个脱离文档流有些严重，过于清高，不跟普通小伙伴玩耍，我就不说什么了……
-3. **overflow:hidden** 这个超棒的哦！不像浮动和绝对定位，玩得有点过。也就是溢出剪裁什么的，本身还是个很普通的元素。因此，块状元素的流体特性保存相当完好，附上BFC的独立区域特性，可谓如虎添翼，宇宙无敌！哈无诶瓦(However), 就跟清除浮动：
+    //name.jsvarname='William';setTimeout(()=>name='Yvette',200);module.exports={
+        name
+    };//index.jsconstname=require('./name');console.log(name);//WilliamsetTimeout(()=>console.log(name),300);//William
 
-    .clearfix { overflow: hidden; _zoom: 1; }
+对比 ES6 模块看一下:
 
-一样。由于很多场景我们是不能`overflow:hidden`的，因此，无法作为一个通用CSS类整站大规模使用。因此，`float+overflow`的自适应布局，我们可以在局部（你确定不会有什么被剪裁的情况下）很happy地使用。
+ES6 模块的运行机制与 CommonJS 不一样。JS 引擎对脚本静态分析的时候，遇到模块加载命令 import ，就会生成一个只读引用。等到脚本真正执行时，再根据这个只读引用，到被加载的那个模块里面去取值。
 
-4. **display:inline-block** CSS届最伟大的声明之一，但是，在这里，就有些捉襟见肘了。`display:inline-block`会让元素尺寸包裹收缩，完全就不是我们想要的`block`水平的流动特性。唉，只能是一声叹气一枪毙掉的命！然而，峰回路转，世事难料。大家应该知道，IE6/IE7浏览器下，`block`水平的元素设置`display:inline-block`元素还是`block`水平，也就是还是会自适应容器的可用宽度显示。于是，我们就阴差阳错得到一个比`overflow:hidden`更牛逼的声明，即BFC特性加身，又流体特性保留。
+    //name.jsvarname='William';setTimeout(()=>name='Yvette',200);export{name};//index.jsimport{name}from'./name';console.log(name);//WilliamsetTimeout(()=>console.log(name),300);//Yvette
 
-    .float-left {
-        float: left;
-    }
-    .bfc-content {
-        display: inline-block;
-    }
+如果你有更好的答案或想法，欢迎在这题目对应的github下留言：[ES6模块和CommonJS模块的差异？](https://github.com/YvetteLau/Blog/issues/18)
 
-当然，`*zoom: 1`也是类似效果，不过只适用于低级的IE浏览器，如IE7~
+---
 
-5. **display:table-cell** 让元素表现得像单元格一样，IE8+以上浏览器才支持。跟`display:inline-block`一样，会跟随内部元素的宽度显示，看样子也是不合适的命。但是，单元格有个非常神奇的特性，就是你宽度值设置地再大，大到西伯利亚，实际宽度也不会超过表格容器的宽度。
-![image](https://image.zhangxinxu.com/image/blog/201502/2015-02-12_224124.png)
-因此，如果我们把`display:table-cell`这个BFC元素宽度设置很大，比方说3000像素。那其实就跟`block`水平元素自动适应容器空间效果一模一样了。除非你的容器宽度超过3000像素，实际上，一般web页面不会有3000像素宽的模块的。所以，要是你实在不放心，设个`9999`像素值好了！
+### 10.浏览器事件代理机制的原理是什么？
 
-    .float-left {
-        float: left;
-    }
-    .bfc-content {
-        display: table-cell; width: 9999px;
-    }
+在说浏览器事件代理机制原理之前，我们首先了解一下事件流的概念，早期浏览器，IE采用的是事件捕获事件流，而Netscape采用的则是事件捕获。"DOM2级事件"把事件流分为三个阶段，捕获阶段、目标阶段、冒泡阶段。现代浏览器也都遵循此规范。
 
-看上去，好像还不错。但是，还是有两点制约，一是IE8+以上浏览器兼容，有些苦逼的团队还要管IE6；二是应付连续英文字符换行有些吃力（可以嵌套`table-layout:fixed`解决）。但是，总体来看，适用的场景要比`overflow:hidden`广博很多。
+[![image](https://camo.githubusercontent.com/a2473ce916b426657cf69829e09e1b1fcd75620b/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434539303731353332353935313534383966356338386539663038373438363533312f3239343838)](https://camo.githubusercontent.com/a2473ce916b426657cf69829e09e1b1fcd75620b/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434539303731353332353935313534383966356338386539663038373438363533312f3239343838)
 
-6. **display:table-row** 对`width`无感，无法自适应剩余容器空间。
-7. **display:table-caption** 一无是处……还有其他声明也都是一无是处，我就不全部展开了……
+> 那么事件代理是什么呢？
 
-**总结：**我们对BFC声明家族大致过了一遍，能担任自适应布局重任的也就是：
+事件代理又称为事件委托，在祖先级DOM元素绑定一个事件，当触发子孙级DOM元素的事件时，利用事件冒泡的原理来触发绑定在祖先级DOM的事件。因为事件会从目标元素一层层冒泡至document对象。
 
-1. `overflow:auto/hidden` IE7+
-2. `display:inline-block`  IE6/IE7
-3. `display:table-cell`   IE8+
+> 为什么要事件代理？
 
-由于overflow有剪裁和出现滚动条等隐患，不适合作为整站通用类，于是，最后，类似清除浮动的通用类语句：
+1. 
+添加到页面上的事件数量会影响页面的运行性能，如果添加的事件过多，会导致网页的性能下降。采用事件代理的方式，可以大大减少注册事件的个数。
 
-    .clearfix {
-        *zoom: 1;
-    }
-    .clearfix:after {
-        content: ''; display: table; clear: both;
-    }
+2. 
+事件代理的当时，某个子孙元素是动态增加的，不需要再次对其进行事件绑定。
 
-两栏或多栏自适应布局的通用类语句是（`block`水平标签，需配合浮动）：
+3. 
+不用担心某个注册了事件的DOM元素被移除后，可能无法回收其事件处理程序，我们只要把事件处理程序委托给更高层级的元素，就可以避免此问题。
 
-    .cell {
-        display: table-cell; width: 9999px;
-        *display: inline-block; *width: auto;
-    }
-    
+> 如将页面中的所有click事件都代理到document上:
 
-这就是[zxx.lib.css](https://github.com/zhangxinxu/zxx.lib.css)CSS样式库中`.cell`的由来！
+addEventListener 接受3个参数，分别是要处理的事件名、处理事件程序的函数和一个布尔值。布尔值默认为false。表示冒泡阶段调用事件处理程序，若设置为true，表示在捕获阶段调用事件处理程序。
 
-当然，由于和浮动元素合作，清除浮动还是要的，于是，就有了`.fix` + `.l/.r` + `.cell`的无敌组合，可以多栏，也可以无限嵌套。
+    document.addEventListener('click',function(e){console.log(e.target);/**    * 捕获阶段调用调用事件处理程序，eventPhase是 1;     * 处于目标，eventPhase是2     * 冒泡阶段调用事件处理程序，eventPhase是 1；    */console.log(e.eventPhase);});
 
-如果是局部，且确认安全；或有连续英文字符换行的隐患，你也可以使用`.fix` + `.l/.r` + `.ovh`的无敌组合，可以多栏，也可以无限嵌套。
+如果你有更好的答案或想法，欢迎在这题目对应的github下留言：[浏览器事件代理机制的原理是什么？](https://github.com/YvetteLau/Blog/issues/19)
 
-### 四、结束之言
-
-估计本文是春节前的最后一篇文章了，小生在这里提前祝大家「羊年快乐」「万事如意」「事业蒸蒸日上」！
-
-另，本文内容非权威，多个人理解与感悟，仅供参考。欢迎交流，提出您的真知灼见！
-
-感谢阅读！![image](https://mat1.gtimg.com/www/mb/images/face/14.gif)
-
-本文为原创文章，会经常更新知识点以及修正一些错误，因此转载请保留原出处，方便溯源，避免陈旧错误知识的误导，同时有更好的阅读体验。
-
-本文地址：[https://www.zhangxinxu.com/wordpress/?p=4588](https://www.zhangxinxu.com/wordpress/?p=4588)
-
-（本篇完）// 文章不错，我要[分享到微信](javascript:)！有话要说？点击[这里](#comment)。
-
-« [图片动态局部毛玻璃模糊效果的实现](https://www.zhangxinxu.com/wordpress/2015/02/image-local-blur-background-attachment-fixed/)
-
-[小tip: IE下zoom或Matrix矩阵滤镜中心点变换实现](https://www.zhangxinxu.com/wordpress/2015/02/ie-zoom-transform-filter/) »
-
-猜你喜欢
-
-- [快速了解CSS display:flow-root声明](https://www.zhangxinxu.com/wordpress/2020/05/css-display-flow-root/)(0.305)
-- [CSS百分比padding实现比例固定图片自适应布局](https://www.zhangxinxu.com/wordpress/2017/08/css-percent-padding-image-layout/)(0.218)
-- [display:table-cell自适应布局下连续单词字符换行](https://www.zhangxinxu.com/wordpress/2012/01/display-table-cell-display-table-layout-fixed-word-wrap-break-word/)(0.145)
-- [border-collapse与table td边框opacity透明度诡异解析](https://www.zhangxinxu.com/wordpress/2015/03/border-collapse-table-td-border-opacity/)(0.145)
-- [我所知道的几种display:table-cell的应用](https://www.zhangxinxu.com/wordpress/2010/10/%e6%88%91%e6%89%80%e7%9f%a5%e9%81%93%e7%9a%84%e5%87%a0%e7%a7%8ddisplaytable-cell%e7%9a%84%e5%ba%94%e7%94%a8/)(0.135)
-- [display:inline-block/text-align:justify下列表的两端对齐布局](https://www.zhangxinxu.com/wordpress/2011/03/displayinline-blocktext-alignjustify%e4%b8%8b%e5%88%97%e8%a1%a8%e7%9a%84%e4%b8%a4%e7%ab%af%e5%af%b9%e9%bd%90%e5%b8%83%e5%b1%80/)(0.135)
-- [CSS样式分离之再分离](https://www.zhangxinxu.com/wordpress/2010/07/css%e6%a0%b7%e5%bc%8f%e5%88%86%e7%a6%bb%e4%b9%8b%e5%86%8d%e5%88%86%e7%a6%bb/)(0.126)
-- [大小不固定的图片、多行文字的水平垂直居中](https://www.zhangxinxu.com/wordpress/2009/08/%e5%a4%a7%e5%b0%8f%e4%b8%8d%e5%9b%ba%e5%ae%9a%e7%9a%84%e5%9b%be%e7%89%87%e3%80%81%e5%a4%9a%e8%a1%8c%e6%96%87%e5%ad%97%e7%9a%84%e6%b0%b4%e5%b9%b3%e5%9e%82%e7%9b%b4%e5%b1%85%e4%b8%ad/)(0.118)
-- [对overflow与zoom"清除浮动"的一些认识](https://www.zhangxinxu.com/wordpress/2010/01/%e5%af%b9overflow%e4%b8%8ezoom%e6%b8%85%e9%99%a4%e6%b5%ae%e5%8a%a8%e7%9a%84%e4%b8%80%e4%ba%9b%e8%ae%a4%e8%af%86/)(0.118)
-- [理解CSS3 max/min-content及fit-content等width值](https://www.zhangxinxu.com/wordpress/2016/05/css3-width-max-contnet-min-content-fit-content/)(0.118)
-- [letter-spacing+first-letter实现按钮文字隐藏](https://www.zhangxinxu.com/wordpress/2013/07/letter-spacing-first-letter-%e6%8c%89%e9%92%ae%e6%96%87%e5%ad%97%e9%9a%90%e8%97%8f/)(RANDOM - 0.031)
-
-分享到：[//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153](//service.weibo.com/share/share.php?title=CSS深入理解流体特性和BFC特性下多栏自适应布局 «  张鑫旭-鑫空间-鑫生活&amp;url=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;appkey=3740445153)[/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20](/php/qrcode/index.php?data=https://www.zhangxinxu.com/wordpress/2015/02/css-deep-understand-flow-bfc-column-two-auto-layout/&amp;size=20)
-
-标签： [BFC](https://www.zhangxinxu.com/wordpress/tag/bfc/), [display:inline-block](https://www.zhangxinxu.com/wordpress/tag/displayinline-block/), [display:table-cell](https://www.zhangxinxu.com/wordpress/tag/displaytable-cell/), [inline-block](https://www.zhangxinxu.com/wordpress/tag/inline-block/), [overflow:hidden](https://www.zhangxinxu.com/wordpress/tag/overflowhidden/), [table-cell](https://www.zhangxinxu.com/wordpress/tag/table-cell/), [布局](https://www.zhangxinxu.com/wordpress/tag/%e5%b8%83%e5%b1%80/), [流动性布局](https://www.zhangxinxu.com/wordpress/tag/%e6%b5%81%e5%8a%a8%e6%80%a7%e5%b8%83%e5%b1%80/), [自适应布局](https://www.zhangxinxu.com/wordpress/tag/%e8%87%aa%e9%80%82%e5%ba%94%e5%b8%83%e5%b1%80/)
+---
