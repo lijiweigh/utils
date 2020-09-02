@@ -1,1277 +1,959 @@
-<td class="d-block comment-body markdown-body  js-comment-body">
-          <p>互联网寒冬之际，各大公司都缩减了HC，甚至是采取了“裁员”措施，在这样的大环境之下，想要获得一份更好的工作，必然需要付出更多的努力。</p>
-<p>一年前，也许你搞清楚闭包，this，原型链，就能获得认可。但是现在，很显然是不行了。本文梳理出了一些面试中有一定难度的高频原生JS问题，部分知识点可能你之前从未关注过，或者看到了，却没有仔细研究，但是它们却非常重要。本文将以真实的面试题的形式来呈现知识点，大家在阅读时，建议不要先看我的答案，而是自己先思考一番。尽管，本文所有的答案，都是我在翻阅各种资料，思考并验证之后，才给出的(<strong>绝非复制粘贴而来</strong>)。但因水平有限，本人的答案未必是最优的，如果您有更好的答案，欢迎给我留言。</p>
-<p>本文篇幅较长，但是满满的都是干货！并且还埋伏了可爱的表情包，希望小伙伴们能够坚持读完。</p>
-<p>写文超级真诚的小姐姐祝愿大家都能找到心仪的工作。</p>
-<p>如果你还没读过上篇【上篇和中篇并无依赖关系，您可以读过本文之后再阅读上篇】，可戳<a href="https://juejin.im/post/5cab0c45f265da2513734390" rel="nofollow">【面试篇】寒冬求职季之你必须要懂的原生JS(上)</a></p>
-<p><strong>小姐姐花了近百个小时才完成这篇文章，篇幅较长，希望大家阅读时多花点耐心，力求真正的掌握相关知识点。</strong></p>
-<h3>1.说一说JS异步发展史</h3>
-<p>异步最早的解决方案是回调函数，如事件的回调，setInterval/setTimeout中的回调。但是回调函数有一个很常见的问题，就是回调地狱的问题(稍后会举例说明);</p>
-<p>为了解决回调地狱的问题，社区提出了Promise解决方案，ES6将其写进了语言标准。Promise解决了回调地狱的问题，但是Promise也存在一些问题，如错误不能被try catch，而且使用Promise的链式调用，其实并没有从根本上解决回调地狱的问题，只是换了一种写法。</p>
-<p>ES6中引入 Generator 函数，Generator是一种异步编程解决方案，Generator 函数是协程在 ES6 的实现，最大特点就是可以交出函数的执行权，Generator 函数可以看出是异步任务的容器，需要暂停的地方，都用yield语句注明。但是 Generator 使用起来较为复杂。</p>
-<p>ES7又提出了新的异步解决方案:async/await，async是 Generator 函数的语法糖，async/await 使得异步代码看起来像同步代码，异步编程发展的目标就是让异步逻辑的代码看起来像同步一样。</p>
+<table class="d-block" data-paste-markdown-skip="">
+  <tbody class="d-block">
+    <tr class="d-block">
+      <td class="d-block comment-body markdown-body  js-comment-body">
+          <h2>引言（文末有福利）<g-emoji class="g-emoji" alias="snowboarder" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3c2.png">🏂</g-emoji></h2>
+<p>算法一直是大厂前端面试常问的一块，而大家往往准备这方面的面试都是通过<code>leetcode</code>刷题。</p>
+<p>我特地整理了几道<code>leetcode</code>中「<code>很有意思</code>」而且非常「<code>高频</code>」的算法题目，分别给出了思路分析（带图解）和代码实现。</p>
+<p>认真仔细的阅读完本文，相信对于你在算法方面的面试一定会有不小的帮助！<g-emoji class="g-emoji" alias="cowboy_hat_face" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f920.png">🤠</g-emoji></p>
+<h2>两数之和 <g-emoji class="g-emoji" alias="fox_face" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f98a.png">🦊</g-emoji></h2>
 <blockquote>
-<p>1.回调函数: callback</p>
+<p>题目难度<code>easy</code>，涉及到的算法知识有数组、哈希表</p>
 </blockquote>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//node读取文件</span>
-<span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-en">readFile</span><span class="pl-kos">(</span><span class="pl-s1">xxx</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//code</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>回调函数的使用场景(包括但不限于):</p>
-<ol>
-<li>事件回调</li>
-<li>Node API</li>
-<li>setTimeout/setInterval中的回调函数</li>
-</ol>
-<p>异步回调嵌套会导致代码难以维护，并且不方便统一处理错误，不能try catch 和 回调地狱(如先读取A文本内容，再根据A文本内容读取B再根据B的内容读取C...)。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-en">readFile</span><span class="pl-kos">(</span><span class="pl-v">A</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-en">readFile</span><span class="pl-kos">(</span><span class="pl-v">B</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-en">readFile</span><span class="pl-kos">(</span><span class="pl-v">C</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-en">readFile</span><span class="pl-kos">(</span><span class="pl-v">D</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-                <span class="pl-c">//....</span>
-            <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<blockquote>
-<p>2.Promise</p>
-</blockquote>
-<p>Promise 主要解决了回调地狱的问题，Promise 最早由社区提出和实现，ES6 将其写进了语言标准，统一了用法，原生提供了Promise对象。</p>
-<p>那么我们看看Promise是如何解决回调地狱问题的，仍然以上文的readFile为例。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-s1">url</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-en">readFile</span><span class="pl-kos">(</span><span class="pl-s1">url</span><span class="pl-kos">,</span> <span class="pl-s">'utf8'</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-            <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span> <span class="pl-s1">reject</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-v">A</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">data</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-v">B</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">data</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-v">C</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">data</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-v">D</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">catch</span><span class="pl-kos">(</span><span class="pl-s1">reason</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">reason</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>想要运行代码看效果，请戳(小姐姐使用的是VS的 Code Runner 执行代码): <a href="https://github.com/YvetteLau/Blog/blob/master/JS/Async/promise.js">https://github.com/YvetteLau/Blog/blob/master/JS/Async/promise.js</a></p>
-<p>思考一下在Promise之前，你是如何处理异步并发问题的，假设有这样一个需求：读取三个文件内容，都读取成功后，输出最终的结果。有了Promise之后，又如何处理呢？代码可戳: <a href="https://github.com/YvetteLau/Blog/blob/master/JS/Async/index.js">https://github.com/YvetteLau/Blog/blob/master/JS/Async/index.js</a></p>
-<p>注: 可以使用 bluebird 将接口 promise化;</p>
-<p><strong>引申:</strong> Promise有哪些优点和问题呢？</p>
+<h3>题目描述</h3>
+<p>给定一个整数数组 <code>nums</code>&nbsp; 和一个目标值 <code>target</code>，请你在该数组中找出和为目标值的那<code>两个</code>整数，并返回他们的数组下标。</p>
+<p>你可以假设每种输入只会对应一个答案。但是，数组中同一个元素不能使用两遍。</p>
+<p>示例：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">给定</span> <span class="pl-s1">nums</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">7</span><span class="pl-kos">,</span> <span class="pl-c1">11</span><span class="pl-kos">,</span> <span class="pl-c1">15</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">target</span> <span class="pl-c1">=</span> <span class="pl-c1">9</span>
 
-<blockquote>
-<p>3.Generator</p>
-</blockquote>
-<p>Generator 函数是 ES6 提供的一种异步编程解决方案，整个 Generator 函数就是一个封装的异步任务，或者说是异步任务的容器。异步操作需要暂停的地方，都用 yield 语句注明。</p>
-<p>Generator 函数一般配合 yield 或 Promise 使用。Generator函数返回的是迭代器。对生成器和迭代器不了解的同学，请自行补习下基础。下面我们看一下 Generator 的简单使用:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span>* <span class="pl-s1">gen</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">let</span> <span class="pl-s1">a</span> <span class="pl-c1">=</span> <span class="pl-k">yield</span> <span class="pl-c1">111</span><span class="pl-kos">;</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">a</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">let</span> <span class="pl-s1">b</span> <span class="pl-c1">=</span> <span class="pl-k">yield</span> <span class="pl-c1">222</span><span class="pl-kos">;</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">b</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">let</span> <span class="pl-s1">c</span> <span class="pl-c1">=</span> <span class="pl-k">yield</span> <span class="pl-c1">333</span><span class="pl-kos">;</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">c</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">let</span> <span class="pl-s1">d</span> <span class="pl-c1">=</span> <span class="pl-k">yield</span> <span class="pl-c1">444</span><span class="pl-kos">;</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">d</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-k">let</span> <span class="pl-s1">t</span> <span class="pl-c1">=</span> <span class="pl-en">gen</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">//next方法可以带一个参数，该参数就会被当作上一个yield表达式的返回值</span>
-<span class="pl-s1">t</span><span class="pl-kos">.</span><span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//第一次调用next函数时，传递的参数无效</span>
-<span class="pl-s1">t</span><span class="pl-kos">.</span><span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//a输出2;</span>
-<span class="pl-s1">t</span><span class="pl-kos">.</span><span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//b输出2; </span>
-<span class="pl-s1">t</span><span class="pl-kos">.</span><span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">4</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//c输出3;</span>
-<span class="pl-s1">t</span><span class="pl-kos">.</span><span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">5</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//d输出3;</span></pre></div>
-<p>为了让大家更好的理解上面代码是如何执行的，我画了一张图，分别对应每一次的next方法调用:</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/2ca8d09a5bc1add25a11cab2362d73d3c1fcc634/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434536633839663561376332343263343264303066663265316566666137383364332f3239343930"><img src="https://camo.githubusercontent.com/2ca8d09a5bc1add25a11cab2362d73d3c1fcc634/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434536633839663561376332343263343264303066663265316566666137383364332f3239343930" alt="" data-canonical-src="https://note.youdao.com/yws/public/resource/f45701cc410504e71dbbcbd8861e8d0c/xmlnote/WEBRESOURCE6c89f5a7c242c42d00ff2e1effa783d3/29490" style="max-width:100%;"></a></p>
-<p>仍然以上文的readFile为例，使用 Generator + co库来实现:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">const</span> <span class="pl-s1">fs</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'fs'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">const</span> <span class="pl-s1">co</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'co'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">const</span> <span class="pl-s1">bluebird</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'bluebird'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">const</span> <span class="pl-s1">readFile</span> <span class="pl-c1">=</span> <span class="pl-s1">bluebird</span><span class="pl-kos">.</span><span class="pl-en">promisify</span><span class="pl-kos">(</span><span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-c1">readFile</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-
-<span class="pl-k">function</span>* <span class="pl-s1">read</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">yield</span> <span class="pl-s1">readFile</span><span class="pl-kos">(</span><span class="pl-v">A</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">yield</span> <span class="pl-s1">readFile</span><span class="pl-kos">(</span><span class="pl-v">B</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">yield</span> <span class="pl-s1">readFile</span><span class="pl-kos">(</span><span class="pl-v">C</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-c">//....</span>
-<span class="pl-kos">}</span>
-<span class="pl-s1">co</span><span class="pl-kos">(</span><span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">data</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//code</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">catch</span><span class="pl-kos">(</span><span class="pl-s1">err</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//code</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>不使用co库，如何实现？能否自己写一个最简的my_co？请戳: <a href="https://github.com/YvetteLau/Blog/blob/master/JS/Async/generator.js">https://github.com/YvetteLau/Blog/blob/master/JS/Async/generator.js</a></p>
-<p>PS: 如果你还不太了解 Generator/yield，建议阅读ES6相关文档。</p>
-<blockquote>
-<p>4.async/await</p>
-</blockquote>
-<p>ES7中引入了 async/await 概念。async其实是一个语法糖，它的实现就是将Generator函数和自动执行器（co），包装在一个函数中。</p>
-<p>async/await 的优点是代码清晰，不用像 Promise 写很多 then 链，就可以处理回调地狱的问题。错误可以被try catch。</p>
-<p>仍然以上文的readFile为例，使用 Generator + co库来实现:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">const</span> <span class="pl-s1">fs</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'fs'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">const</span> <span class="pl-s1">bluebird</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'bluebird'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">const</span> <span class="pl-s1">readFile</span> <span class="pl-c1">=</span> <span class="pl-s1">bluebird</span><span class="pl-kos">.</span><span class="pl-en">promisify</span><span class="pl-kos">(</span><span class="pl-s1">fs</span><span class="pl-kos">.</span><span class="pl-c1">readFile</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-
-
-<span class="pl-k">async</span> <span class="pl-k">function</span> <span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">await</span> <span class="pl-s1">readFile</span><span class="pl-kos">(</span><span class="pl-v">A</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">await</span> <span class="pl-s1">readFile</span><span class="pl-kos">(</span><span class="pl-v">B</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">await</span> <span class="pl-s1">readFile</span><span class="pl-kos">(</span><span class="pl-v">C</span><span class="pl-kos">,</span> <span class="pl-s">'utf-8'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-c">//code</span>
-<span class="pl-kos">}</span>
-
-<span class="pl-en">read</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//code</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">catch</span><span class="pl-kos">(</span><span class="pl-s1">err</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//code</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>可执行代码，请戳：<a href="https://github.com/YvetteLau/Blog/blob/master/JS/Async/async.js">https://github.com/YvetteLau/Blog/blob/master/JS/Async/async.js</a></p>
-<p>思考一下 async/await 如何处理异步并发问题的？ <a href="https://github.com/YvetteLau/Blog/blob/master/JS/Async/index.js">https://github.com/YvetteLau/Blog/blob/master/JS/Async/index.js</a></p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/10" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/10/hovercard">说一说JS异步发展史</a></p>
-<hr>
-<h3>2.谈谈对 async/await 的理解，async/await 的实现原理是什么?</h3>
-<p>async/await 就是 Generator 的语法糖，使得异步操作变得更加方便。来张图对比一下:</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/bfc3602899e269cd425732846fb928b62b5aa5cf/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434564316332353132343739373437633530643035616432613930666434333536372f3239343932"><img src="https://camo.githubusercontent.com/bfc3602899e269cd425732846fb928b62b5aa5cf/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434564316332353132343739373437633530643035616432613930666434333536372f3239343932" alt="" data-canonical-src="https://note.youdao.com/yws/public/resource/f45701cc410504e71dbbcbd8861e8d0c/xmlnote/WEBRESOURCEd1c2512479747c50d05ad2a90fd43567/29492" style="max-width:100%;"></a></p>
-<p>async 函数就是将 Generator 函数的星号（*）替换成 async，将 yield 替换成await。</p>
-<blockquote>
-<p>我们说 async 是 Generator 的语法糖，那么这个糖究竟甜在哪呢？</p>
-</blockquote>
-<p>1）async函数内置执行器，函数调用之后，会自动执行，输出最后结果。而Generator需要调用next或者配合co模块使用。</p>
-<p>2）更好的语义，async和await，比起星号和yield，语义更清楚了。async表示函数里有异步操作，await表示紧跟在后面的表达式需要等待结果。</p>
-<p>3）更广的适用性。co模块约定，yield命令后面只能是 Thunk 函数或 Promise 对象，而async 函数的 await 命令后面，可以是 Promise 对象和原始类型的值。</p>
-<p>4）返回值是Promise，async函数的返回值是 Promise 对象，Generator的返回值是 Iterator，Promise 对象使用起来更加方便。</p>
-<blockquote>
-<p>async 函数的实现原理，就是将 Generator 函数和自动执行器，包装在一个函数里。</p>
-</blockquote>
-<p>具体代码试下如下(和spawn的实现略有差异，个人觉得这样写更容易理解)，如果你想知道如何一步步写出 my_co ，可戳: <a href="https://github.com/YvetteLau/Blog/blob/master/JS/Async/my_async.js">https://github.com/YvetteLau/Blog/blob/master/JS/Async/my_async.js</a></p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-en">my_co</span><span class="pl-kos">(</span><span class="pl-s1">it</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-k">function</span> <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-k">try</span> <span class="pl-kos">{</span>
-                <span class="pl-k">var</span> <span class="pl-kos">{</span> value<span class="pl-kos">,</span> done <span class="pl-kos">}</span> <span class="pl-c1">=</span> <span class="pl-s1">it</span><span class="pl-kos">.</span><span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-kos">}</span><span class="pl-k">catch</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-                <span class="pl-k">return</span> <span class="pl-s1">reject</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-kos">}</span>
-            <span class="pl-k">if</span> <span class="pl-kos">(</span>!<span class="pl-s1">done</span><span class="pl-kos">)</span> <span class="pl-kos">{</span> 
-                <span class="pl-c">//done为true,表示迭代完成</span>
-                <span class="pl-c">//value 不一定是 Promise，可能是一个普通值。使用 Promise.resolve 进行包装。</span>
-                <span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">resolve</span><span class="pl-kos">(</span><span class="pl-s1">value</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">val</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-                    <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-s1">val</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-                <span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
-                <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-s1">value</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-kos">}</span>
-        <span class="pl-kos">}</span>
-        <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//执行一次next</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-k">function</span>* <span class="pl-s1">test</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">yield</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-c1">100</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">yield</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-c">// throw Error(1);</span>
-        <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-c1">10</span><span class="pl-kos">)</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-k">yield</span> <span class="pl-c1">10</span><span class="pl-kos">;</span>
-    <span class="pl-k">return</span> <span class="pl-c1">1000</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-
-<span class="pl-en">my_co</span><span class="pl-kos">(</span><span class="pl-en">test</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">data</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//输出1000</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">catch</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'err: '</span><span class="pl-kos">,</span> <span class="pl-s1">err</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/11" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/11/hovercard">谈谈对 async/await 的理解，async/await 的实现原理是什么?</a></p>
-<hr>
-<h3>3.使用 async/await 需要注意什么？</h3>
-<ol>
-<li>await 命令后面的Promise对象，运行结果可能是 rejected，此时等同于 async 函数返回的 Promise 对象被reject。因此需要加上错误处理，可以给每个 await 后的 Promise 增加 catch 方法；也可以将 await 的代码放在 <code>try...catch</code> 中。</li>
-<li>多个await命令后面的异步操作，如果不存在继发关系，最好让它们同时触发。</li>
-</ol>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//下面两种写法都可以同时触发</span>
-<span class="pl-c">//法一</span>
-<span class="pl-k">async</span> <span class="pl-k">function</span> <span class="pl-en">f1</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">await</span> <span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">all</span><span class="pl-kos">(</span><span class="pl-kos">[</span>
-        <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-            <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-c1">600</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
-        <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-            <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-c1">600</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span><span class="pl-kos">)</span>
-    <span class="pl-kos">]</span><span class="pl-kos">)</span>
-<span class="pl-kos">}</span>
-<span class="pl-c">//法二</span>
-<span class="pl-k">async</span> <span class="pl-k">function</span> <span class="pl-en">f2</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">let</span> <span class="pl-s1">fn1</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-            <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-c1">800</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    
-    <span class="pl-k">let</span> <span class="pl-s1">fn2</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-            <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-c1">800</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span><span class="pl-kos">)</span>
-    <span class="pl-k">await</span> <span class="pl-s1">fn1</span><span class="pl-kos">;</span>
-    <span class="pl-k">await</span> <span class="pl-s1">fn2</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span></pre></div>
-<ol start="3">
-<li>await命令只能用在async函数之中，如果用在普通函数，会报错。</li>
-<li>async 函数可以保留运行堆栈。</li>
-</ol>
+<span class="pl-s1">因为</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">2</span> <span class="pl-c1">+</span> <span class="pl-c1">7</span> <span class="pl-c1">=</span> <span class="pl-c1">9</span>
+<span class="pl-s1">所以返回</span> <span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">1</span><span class="pl-kos">]</span></pre></div>
+<h3>思路分析</h3>
+<p>大多数同学看到这道题目，心中肯定会想：这道题目太简单了，不就两层遍历嘛：两层循环来遍历同一个数组；第一层循环遍历的值记为<code>a</code>，第二层循环时遍历的值记为<code>b</code>；若<code>a+b = 目标值</code>，那么<code>a</code>和<code>b</code>对应的数组下标就是我们想要的答案。</p>
+<p>这种解法没毛病，但有没有优化的方案呢？<g-emoji class="g-emoji" alias="thinking" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f914.png">🤔</g-emoji></p>
+<p>要知道两层循环很多情况下都意味着<code>O(n^2)</code> 的复杂度，这个复杂度非常容易导致你的算法超时。即便没有超时，在明明有一层遍历解法的情况下，你写了两层遍历，面试官也会对你的印象分大打折扣。<g-emoji class="g-emoji" alias="face_with_thermometer" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f912.png">🤒</g-emoji></p>
+<p>其实我们可以在遍历数组的过程中，增加一个<code>Map</code>结构来存储已经遍历过的数字及其对应的索引值。然后每遍历到一个新数字的时候，都回到<code>Map</code>里去查询<code>targetNum</code>与该数的差值是否已经在前面的数字中出现过了。若出现过，那么答案已然显现，我们就不必再往下走了。</p>
+<p>我们就以本题中的例子结合图片来说明一下上面提到的这种思路：</p>
+<ul>
+<li>这里用对象<code>diffs</code>来模拟<code>map</code>结构：<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/50790c5423dcdbf36b021b7ec6e98933d1863390/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f65363939376239352d316234372d343338342d626332372d3032363133366233356331652e706e67"><img src="https://camo.githubusercontent.com/50790c5423dcdbf36b021b7ec6e98933d1863390/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f65363939376239352d316234372d343338342d626332372d3032363133366233356331652e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/e6997b95-1b47-4384-bc27-026136b35c1e.png" style="max-width:100%;"></a><br>
+首先遍历数组第一个元素，此时<code>key</code>为 2，<code>value</code>为索引 0</li>
+</ul>
+<ul>
+<li>往下遍历，遇到了 7:<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/f9de3dd50b5c2a37a330e04ff5a69da1c7d739c7/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f34346164623764652d656663312d346330302d616332612d3636663465623932316662612e706e67"><img src="https://camo.githubusercontent.com/f9de3dd50b5c2a37a330e04ff5a69da1c7d739c7/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f34346164623764652d656663312d346330302d616332612d3636663465623932316662612e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/44adb7de-efc1-4c00-ac2a-66f4eb921fba.png" style="max-width:100%;"></a><br>
+计算<code>targetNum</code>和 7 的差值为 2，去<code>diffs</code>中检索 2 这个<code>key</code>，发现是之前出现过的值。那么本题的答案就出来了！</li>
+</ul>
+<h3>代码实现</h3>
 <div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
-<span class="pl-c">* 函数a内部运行了一个异步任务b()。当b()运行的时候，函数a()不会中断，而是继续执行。</span>
-<span class="pl-c">* 等到b()运行结束，可能a()早就* 运行结束了，b()所在的上下文环境已经消失了。</span>
-<span class="pl-c">* 如果b()或c()报错，错误堆栈将不包括a()。</span>
-<span class="pl-c">*/</span>
-<span class="pl-k">function</span> <span class="pl-en">b</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-c1">200</span><span class="pl-kos">)</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-k">function</span> <span class="pl-en">c</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">throw</span> <span class="pl-v">Error</span><span class="pl-kos">(</span><span class="pl-c1">10</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-k">const</span> <span class="pl-en">a</span> <span class="pl-c1">=</span> <span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-en">b</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-en">c</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-en">a</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">/**</span>
-<span class="pl-c">* 改成async函数</span>
-<span class="pl-c">*/</span>
-<span class="pl-k">const</span> <span class="pl-en">m</span> <span class="pl-c1">=</span> <span class="pl-k">async</span> <span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-k">await</span> <span class="pl-en">b</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-en">c</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-en">m</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>报错信息如下，可以看出 async 函数可以保留运行堆栈。</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/1e7b66f33a49a42372dc145e48ab72409da1db98/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434566376663356434393334336538346164356434323933613362643766616134342f3239343934"><img src="https://camo.githubusercontent.com/1e7b66f33a49a42372dc145e48ab72409da1db98/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434566376663356434393334336538346164356434323933613362643766616134342f3239343934" alt="" data-canonical-src="https://note.youdao.com/yws/public/resource/f45701cc410504e71dbbcbd8861e8d0c/xmlnote/WEBRESOURCEf7fc5d49343e84ad5d4293a3bd7faa44/29494" style="max-width:100%;"></a></p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/12" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/12/hovercard">使用 async/await 需要注意什么？</a></p>
-<hr>
-<h3>4.如何实现 Promise.race？</h3>
-<p>在代码实现前，我们需要先了解 Promise.race 的特点：</p>
-<ol>
-<li>
-<p>Promise.race返回的仍然是一个Promise.<br>
-它的状态与第一个完成的Promise的状态相同。它可以是完成（ resolves），也可以是失败（rejects），这要取决于第一个Promise是哪一种状态。</p>
-</li>
-<li>
-<p>如果传入的参数是不可迭代的，那么将会抛出错误。</p>
-</li>
-<li>
-<p>如果传的参数数组是空，那么返回的 promise 将永远等待。</p>
-</li>
-<li>
-<p>如果迭代包含一个或多个非承诺值和/或已解决/拒绝的承诺，则 Promise.race 将解析为迭代中找到的第一个值。</p>
-</li>
-</ol>
-<div class="highlight highlight-source-js"><pre><span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">race</span> <span class="pl-c1">=</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">promises</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//promises 必须是一个可遍历的数据结构，否则抛错</span>
-    <span class="pl-k">return</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-k">typeof</span> <span class="pl-s1">promises</span><span class="pl-kos">[</span><span class="pl-v">Symbol</span><span class="pl-kos">.</span><span class="pl-c1">iterator</span><span class="pl-kos">]</span> !== <span class="pl-s">'function'</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-c">//真实不是这个错误</span>
-            <span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">reject</span><span class="pl-kos">(</span><span class="pl-s">'args is not iteratable!'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span>
-        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">promises</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">===</span> <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-k">return</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
-            <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">promises</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-                <span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">resolve</span><span class="pl-kos">(</span><span class="pl-s1">promises</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-                    <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-                    <span class="pl-k">return</span><span class="pl-kos">;</span>
-                <span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-                    <span class="pl-s1">reject</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-                    <span class="pl-k">return</span><span class="pl-kos">;</span>
-                <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-kos">}</span>
-        <span class="pl-kos">}</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span></pre></div>
-<p>测试代码:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//一直在等待态</span>
-<span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">race</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'success '</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'err '</span><span class="pl-kos">,</span> <span class="pl-s1">err</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">//抛错</span>
-<span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">race</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'success '</span><span class="pl-kos">,</span> <span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'err '</span><span class="pl-kos">,</span> <span class="pl-s1">err</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-v">Promise</span><span class="pl-kos">.</span><span class="pl-en">race</span><span class="pl-kos">(</span><span class="pl-kos">[</span>
-    <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span> <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span> <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-c1">100</span><span class="pl-kos">)</span> <span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">1000</span><span class="pl-kos">)</span> <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
-    <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span> <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span> <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-c1">200</span><span class="pl-kos">)</span> <span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">200</span><span class="pl-kos">)</span> <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
-    <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span> <span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span> <span class="pl-s1">reject</span><span class="pl-kos">(</span><span class="pl-c1">100</span><span class="pl-kos">)</span> <span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">100</span><span class="pl-kos">)</span> <span class="pl-kos">}</span><span class="pl-kos">)</span>
-<span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">err</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p><strong>引申:</strong> Promise.all/Promise.reject/Promise.resolve/Promise.prototype.finally/Promise.prototype.catch 的实现原理，如果还不太会，戳:<a href="https://github.com/YvetteLau/Blog/issues/2" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/2/hovercard">Promise源码实现</a></p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/13" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/13/hovercard">如何实现 Promise.race？</a></p>
-<hr>
-<h3>5.可遍历数据结构的有什么特点？</h3>
-<p>一个对象如果要具备可被 for...of 循环调用的 Iterator 接口，就必须在其 Symbol.iterator 的属性上部署遍历器生成方法(或者原型链上的对象具有该方法)</p>
-<p><strong>PS:</strong> 遍历器对象根本特征就是具有next方法。每次调用next方法，都会返回一个代表当前成员的信息对象，具有value和done两个属性。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//如为对象添加Iterator 接口;</span>
-<span class="pl-k">let</span> <span class="pl-s1">obj</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
-    <span class="pl-c1">name</span>: <span class="pl-s">"Yvette"</span><span class="pl-kos">,</span>
-    <span class="pl-c1">age</span>: <span class="pl-c1">18</span><span class="pl-kos">,</span>
-    <span class="pl-c1">job</span>: <span class="pl-s">'engineer'</span><span class="pl-kos">,</span>
-    <span class="pl-kos">[</span><span class="pl-v">Symbol</span><span class="pl-kos">.</span><span class="pl-c1">iterator</span><span class="pl-kos">]</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-k">const</span> <span class="pl-s1">self</span> <span class="pl-c1">=</span> <span class="pl-smi">this</span><span class="pl-kos">;</span>
-        <span class="pl-k">const</span> <span class="pl-s1">keys</span> <span class="pl-c1">=</span> <span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">keys</span><span class="pl-kos">(</span><span class="pl-s1">self</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">let</span> <span class="pl-s1">index</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-kos">{</span>
-            <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-                <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">index</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">keys</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-                    <span class="pl-k">return</span> <span class="pl-kos">{</span>
-                        <span class="pl-c1">value</span>: <span class="pl-s1">self</span><span class="pl-kos">[</span><span class="pl-s1">keys</span><span class="pl-kos">[</span><span class="pl-s1">index</span><span class="pl-c1">++</span><span class="pl-kos">]</span><span class="pl-kos">]</span><span class="pl-kos">,</span>
-                        <span class="pl-c1">done</span>: <span class="pl-c1">false</span>
-                    <span class="pl-kos">}</span><span class="pl-kos">;</span>
-                <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
-                    <span class="pl-k">return</span> <span class="pl-kos">{</span> <span class="pl-c1">value</span>: <span class="pl-c1">undefined</span><span class="pl-kos">,</span> <span class="pl-c1">done</span>: <span class="pl-c1">true</span> <span class="pl-kos">}</span><span class="pl-kos">;</span>
-                <span class="pl-kos">}</span>
-            <span class="pl-kos">}</span>
-        <span class="pl-kos">}</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">;</span>
-
-<span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">item</span> <span class="pl-k">of</span> <span class="pl-s1">obj</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">item</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//Yvette  18  engineer</span>
-<span class="pl-kos">}</span></pre></div>
-<p>使用 Generator 函数(遍历器对象生成函数)简写 Symbol.iterator 方法，可以简写如下:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">obj</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
-    <span class="pl-c1">name</span>: <span class="pl-s">"Yvette"</span><span class="pl-kos">,</span>
-    <span class="pl-c1">age</span>: <span class="pl-c1">18</span><span class="pl-kos">,</span>
-    <span class="pl-c1">job</span>: <span class="pl-s">'engineer'</span><span class="pl-kos">,</span>
-    * <span class="pl-kos">[</span><span class="pl-v">Symbol</span><span class="pl-kos">.</span><span class="pl-c1">iterator</span><span class="pl-kos">]</span> <span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-k">const</span> <span class="pl-s1">self</span> <span class="pl-c1">=</span> <span class="pl-smi">this</span><span class="pl-kos">;</span>
-        <span class="pl-k">const</span> <span class="pl-s1">keys</span> <span class="pl-c1">=</span> <span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">keys</span><span class="pl-kos">(</span><span class="pl-s1">self</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">index</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span><span class="pl-s1">index</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">keys</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span> <span class="pl-s1">index</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-k">yield</span> <span class="pl-s1">self</span><span class="pl-kos">[</span><span class="pl-s1">keys</span><span class="pl-kos">[</span><span class="pl-s1">index</span><span class="pl-kos">]</span><span class="pl-kos">]</span><span class="pl-kos">;</span><span class="pl-c">//yield表达式仅能使用在 Generator 函数中</span>
-        <span class="pl-kos">}</span> 
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
-<blockquote>
-<p>原生具备 Iterator 接口的数据结构如下。</p>
-</blockquote>
-<ul>
-<li>Array</li>
-<li>Map</li>
-<li>Set</li>
-<li>String</li>
-<li>TypedArray</li>
-<li>函数的 arguments 对象</li>
-<li>NodeList 对象</li>
-<li>ES6 的数组、Set、Map 都部署了以下三个方法: entries() / keys() / values()，调用后都返回遍历器对象。</li>
-</ul>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/14" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/14/hovercard">可遍历数据结构的有什么特点？</a></p>
-<hr>
-<h3>6.requestAnimationFrame 和 setTimeout/setInterval 有什么区别？使用 requestAnimationFrame 有哪些好处？</h3>
-<p>在 requestAnimationFrame 之前，我们主要使用 setTimeout/setInterval 来编写JS动画。</p>
-<p>编写动画的关键是循环间隔的设置，一方面，循环间隔足够短，动画效果才能显得平滑流畅；另一方面，循环间隔还要足够长，才能确保浏览器有能力渲染产生的变化。</p>
-<p>大部分的电脑显示器的刷新频率是60HZ，也就是每秒钟重绘60次。大多数浏览器都会对重绘操作加以限制，不超过显示器的重绘频率，因为即使超过那个频率用户体验也不会提升。因此，最平滑动画的最佳循环间隔是 1000ms / 60 ，约为16.7ms。</p>
-<p>setTimeout/setInterval 有一个显著的缺陷在于时间是不精确的，setTimeout/setInterval 只能保证延时或间隔不小于设定的时间。因为它们实际上只是把任务添加到了任务队列中，但是如果前面的任务还没有执行完成，它们必须要等待。</p>
-<p>requestAnimationFrame 才有的是系统时间间隔，保持最佳绘制效率，不会因为间隔时间过短，造成过度绘制，增加开销；也不会因为间隔时间太长，使用动画卡顿不流畅，让各种网页动画效果能够有一个统一的刷新机制，从而节省系统资源，提高系统性能，改善视觉效果。</p>
-<p>综上所述，requestAnimationFrame 和 setTimeout/setInterval 在编写动画时相比，优点如下:</p>
-<p>1.requestAnimationFrame 不需要设置时间，采用系统时间间隔，能达到最佳的动画效果。</p>
-<p>2.requestAnimationFrame 会把每一帧中的所有DOM操作集中起来，在一次重绘或回流中就完成。</p>
-<p>3.当 requestAnimationFrame() 运行在后台标签页或者隐藏的 <code>&lt;iframe&gt;</code> 里时，requestAnimationFrame() 会被暂停调用以提升性能和电池寿命（大多数浏览器中）。</p>
-<p>requestAnimationFrame 使用(试试使用requestAnimationFrame写一个移动的小球，从A移动到B初):</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-en">step</span><span class="pl-kos">(</span><span class="pl-s1">timestamp</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-c">//code...</span>
-    <span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-en">requestAnimationFrame</span><span class="pl-kos">(</span><span class="pl-s1">step</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-en">requestAnimationFrame</span><span class="pl-kos">(</span><span class="pl-s1">step</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/15" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/15/hovercard">requestAnimationFrame 和 setTimeout/setInterval 有什么区别？使用 requestAnimationFrame 有哪些好处？</a></p>
-<hr>
-<h3>7.JS 类型转换的规则是什么？</h3>
-<p>类型转换的规则三言两语说不清，真想哇得一声哭出来~<br>
-<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/a81da42a57352299f279307e21a5a93d11bf26fa/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353735373135363134362664693d353431643036376439636363663432383164333332396566636635393538313226696d67747970653d30267372633d68747470253341253246253246696d672e676966686f6d652e636f6d25324667696625324673253246323031383130303125324633396639656330616635633033646364616633313531613934363434353762632e6a7067"><img src="https://camo.githubusercontent.com/a81da42a57352299f279307e21a5a93d11bf26fa/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353735373135363134362664693d353431643036376439636363663432383164333332396566636635393538313226696d67747970653d30267372633d68747470253341253246253246696d672e676966686f6d652e636f6d25324667696625324673253246323031383130303125324633396639656330616635633033646364616633313531613934363434353762632e6a7067" alt="" data-canonical-src="https://timgsa.baidu.com/timg?image&amp;quality=80&amp;size=b9999_10000&amp;sec=1555757156146&amp;di=541d067d9cccf4281d3329efcf595812&amp;imgtype=0&amp;src=http%3A%2F%2Fimg.gifhome.com%2Fgif%2Fs%2F20181001%2F39f9ec0af5c03dcdaf3151a9464457bc.jpg" style="max-width:100%;"></a></p>
-<p>JS中类型转换分为 强制类型转换 和 隐式类型转换 。</p>
-<ul>
-<li>
-<p>通过 Number()、parseInt()、parseFloat()、toString()、String()、Boolean(),进行强制类型转换。</p>
-</li>
-<li>
-<p>逻辑运算符(&amp;&amp;、 ||、 !)、运算符(+、-、*、/)、关系操作符(&gt;、 &lt;、 &lt;= 、&gt;=)、相等运算符(==)或者 if/while 的条件，可能会进行隐式类型转换。</p>
-</li>
-</ul>
-<p><strong>强制类型转换</strong></p>
-<blockquote>
-<p>1.Number() 将任意类型的参数转换为数值类型</p>
-</blockquote>
-<p>规则如下:</p>
-<ul>
-<li>如果是布尔值，true和false分别被转换为1和0</li>
-<li>如果是数字，返回自身</li>
-<li>如果是 null，返回 0</li>
-<li>如果是 undefined，返回 <code>NAN</code></li>
-<li>如果是字符串，遵循以下规则:
-<ol>
-<li>如果字符串中只包含数字(或者是 <code>0X</code> / <code>0x</code> 开头的十六进制数字字符串，允许包含正负号)，则将其转换为十进制</li>
-<li>如果字符串中包含有效的浮点格式，将其转换为浮点数值</li>
-<li>如果是空字符串，将其转换为0</li>
-<li>如不是以上格式的字符串，均返回 <code>NaN</code></li>
-</ol>
-</li>
-<li>如果是Symbol，抛出错误</li>
-<li>如果是对象，则调用对象的 <code>valueOf()</code> 方法，然后依据前面的规则转换返回的值。如果转换的结果是 <code>NaN</code> ，则调用对象的 <code>toString()</code> 方法，再次依照前面的规则转换返回的字符串值。</li>
-</ul>
-<p>部分内置对象调用默认的 <code>valueOf</code> 的行为:</p>
-<table role="table">
-<thead>
-<tr>
-<th>对象</th>
-<th>返回值</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Array</td>
-<td>数组本身（对象类型）</td>
-</tr>
-<tr>
-<td>Boolean</td>
-<td>布尔值（原始类型）</td>
-</tr>
-<tr>
-<td>Date</td>
-<td>从 UTC 1970 年 1 月 1 日午夜开始计算，到所封装的日期所经过的毫秒数</td>
-</tr>
-<tr>
-<td>Function</td>
-<td>函数本身（对象类型）</td>
-</tr>
-<tr>
-<td>Number</td>
-<td>数字值（原始类型）</td>
-</tr>
-<tr>
-<td>Object</td>
-<td>对象本身（对象类型）</td>
-</tr>
-<tr>
-<td>String</td>
-<td>字符串值（原始类型）</td>
-</tr>
-</tbody>
-</table>
-<div class="highlight highlight-source-js"><pre><span class="pl-v">Number</span><span class="pl-kos">(</span><span class="pl-s">'0111'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//111</span>
-<span class="pl-v">Number</span><span class="pl-kos">(</span><span class="pl-s">'0X11'</span><span class="pl-kos">)</span> <span class="pl-c">//17</span>
-<span class="pl-v">Number</span><span class="pl-kos">(</span><span class="pl-c1">null</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//0</span>
-<span class="pl-v">Number</span><span class="pl-kos">(</span><span class="pl-s">''</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//0</span>
-<span class="pl-v">Number</span><span class="pl-kos">(</span><span class="pl-s">'1a'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//NaN</span>
-<span class="pl-v">Number</span><span class="pl-kos">(</span><span class="pl-c1">-</span><span class="pl-c1">0X11</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//-17</span></pre></div>
-<blockquote>
-<p>2.parseInt(param, radix)</p>
-</blockquote>
-<p>如果第一个参数传入的是字符串类型:</p>
-<ol>
-<li>忽略字符串前面的空格，直至找到第一个非空字符，如果是空字符串，返回NaN</li>
-<li>如果第一个字符不是数字符号或者正负号，返回NaN</li>
-<li>如果第一个字符是数字/正负号，则继续解析直至字符串解析完毕或者遇到一个非数字符号为止</li>
-</ol>
-<p>如果第一个参数传入的Number类型:</p>
-<ol>
-<li>数字如果是0开头，则将其当作八进制来解析(如果是一个八进制数)；如果以0x开头，则将其当作十六进制来解析</li>
-</ol>
-<p>如果第一个参数是 null 或者是 undefined，或者是一个对象类型：</p>
-<ol>
-<li>返回 NaN</li>
-</ol>
-<p>如果第一个参数是数组：<br>
-1. 去数组的第一个元素，按照上面的规则进行解析</p>
-<p>如果第一个参数是Symbol类型：<br>
-1. 抛出错误</p>
-<p>如果指定radix参数，以radix为基数进行解析</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-s">'0111'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//111</span>
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-c1">0111</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//八进制数 73</span>
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-s">''</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//NaN</span>
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-s">'0X11'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//17</span>
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-s">'1a'</span><span class="pl-kos">)</span> <span class="pl-c">//1</span>
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-s">'a1'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//NaN</span>
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-s">'10aa'</span><span class="pl-kos">,</span><span class="pl-s">'aaa'</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//10</span>
-
-<span class="pl-en">parseInt</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//NaN; parseInt(undefined);</span></pre></div>
-<blockquote>
-<p>parseFloat</p>
-</blockquote>
-<p>规则和<code>parseInt</code>基本相同，接受一个Number类型或字符串，如果是字符串中，那么只有第一个小数点是有效的。</p>
-<blockquote>
-<p>toString()</p>
-</blockquote>
-<p>规则如下:</p>
-<ul>
-<li>如果是Number类型，输出数字字符串</li>
-<li>如果是 null 或者是 undefined，抛错</li>
-<li>如果是数组，那么将数组展开输出。空数组，返回<code>''</code></li>
-<li>如果是对象，返回 <code>[object Object]</code></li>
-<li>如果是Date, 返回日期的文字表示法</li>
-<li>如果是函数，输出对应的字符串(如下demo)</li>
-<li>如果是Symbol，输出Symbol字符串</li>
-</ul>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">arry</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">obj</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span><span class="pl-c1">a</span>:<span class="pl-c1">1</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">sym</span> <span class="pl-c1">=</span> <span class="pl-v">Symbol</span><span class="pl-kos">(</span><span class="pl-c1">100</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">date</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Date</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-en">fn</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'稳住，我们能赢！'</span><span class="pl-kos">)</span><span class="pl-kos">}</span>
-<span class="pl-k">let</span> <span class="pl-s1">str</span> <span class="pl-c1">=</span> <span class="pl-s">'hello world'</span><span class="pl-kos">;</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// ''</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">3</span><span class="pl-kos">,</span> <span class="pl-c1">undefined</span><span class="pl-kos">,</span> <span class="pl-c1">5</span><span class="pl-kos">,</span> <span class="pl-c1">6</span><span class="pl-kos">]</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//1,2,3,,5,6</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">arry</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// 1,2,3</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">obj</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// [object Object]</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">date</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// Sun Apr 21 2019 16:11:39 GMT+0800 (CST)</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-en">fn</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">// function () {console.log('稳住，我们能赢！')}</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">str</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">// 'hello world'</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">sym</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">// Symbol(100)</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">undefined</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">// 抛错</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">null</span><span class="pl-kos">.</span><span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">// 抛错</span></pre></div>
-<blockquote>
-<p>String()</p>
-</blockquote>
-<p><code>String()</code> 的转换规则与 <code>toString()</code> 基本一致，最大的一点不同在于 <code>null</code> 和 <code>undefined</code>，使用 String 进行转换，null 和 undefined对应的是字符串 <code>'null'</code> 和 <code>'undefined'</code></p>
-<blockquote>
-<p>Boolean</p>
-</blockquote>
-<p>除了 undefined、 null、 false、 ''、 0(包括 +0，-0)、 NaN 转换出来是false，其它都是true.</p>
-<p><strong>隐式类型转换</strong></p>
-<blockquote>
-<p>&amp;&amp; 、|| 、 ! 、 if/while 的条件判断</p>
-</blockquote>
-<p>需要将数据转换成 Boolean 类型，转换规则同 Boolean 强制类型转换</p>
-<blockquote>
-<p>运算符: + - * /</p>
-</blockquote>
-<p><code>+</code> 号操作符，不仅可以用作数字相加，还可以用作字符串拼接。</p>
-<p>仅当 <code>+</code> 号两边都是数字时，进行的是加法运算。如果两边都是字符串，直接拼接，无需进行隐式类型转换。</p>
-<p>除了上面的情况外，如果操作数是对象、数值或者布尔值，则调用toString()方法取得字符串值(toString转换规则)。对于 undefined 和 null，分别调用String()显式转换为字符串，然后再进行拼接。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-kos">{</span><span class="pl-kos">}</span><span class="pl-c1">+</span><span class="pl-c1">10</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//[object Object]10</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">3</span><span class="pl-kos">,</span> <span class="pl-c1">undefined</span><span class="pl-kos">,</span> <span class="pl-c1">5</span><span class="pl-kos">,</span> <span class="pl-c1">6</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-c1">10</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//1,2,3,,5,610</span></pre></div>
-<p><code>-</code>、<code>*</code>、<code>/</code> 操作符针对的是运算，如果操作值之一不是数值，则被隐式调用Number()函数进行转换。如果其中有一个转换除了为NaN，结果为NaN.</p>
-<blockquote>
-<p>关系操作符: ==、&gt;、&lt; 、&lt;=、&gt;=</p>
-</blockquote>
-<p><code>&gt;</code> , <code>&lt;</code> ，<code>&lt;=</code> ，<code>&gt;=</code></p>
-<ol>
-<li>如果两个操作值都是数值，则进行数值比较</li>
-<li>如果两个操作值都是字符串，则比较字符串对应的字符编码值</li>
-<li>如果有一方是Symbol类型，抛出错误</li>
-<li>除了上述情况之外，都进行Number()进行类型转换，然后再进行比较。</li>
-</ol>
-<p><strong>注：</strong> NaN是非常特殊的值，它不和任何类型的值相等，包括它自己，同时它与任何类型的值比较大小时都返回false。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">10</span> <span class="pl-c1">&gt;</span> <span class="pl-kos">{</span><span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//返回false.</span>
-<span class="pl-c">/**</span>
-<span class="pl-c"> *{}.valueOf ---&gt; {}</span>
-<span class="pl-c"> *{}.toString() ---&gt; '[object Object]' ---&gt; NaN</span>
-<span class="pl-c"> *NaN 和 任何类型比大小，都返回 false</span>
-<span class="pl-c"> */</span></pre></div>
-<blockquote>
-<p>相等操作符：<code>==</code></p>
-</blockquote>
-<ol>
-<li>如果类型相同，无需进行类型转换。</li>
-<li>如果其中一个操作值是 null 或者是 undefined，那么另一个操作符必须为 null 或者 undefined 时，才返回 true，否则都返回 false.</li>
-<li>如果其中一个是 Symbol 类型，那么返回 false.</li>
-<li>两个操作值是否为 string 和 number，就会将字符串转换为 number</li>
-<li>如果一个操作值是 boolean，那么转换成 number</li>
-<li>如果一个操作值为 object 且另一方为 string、number 或者 symbol，是的话就会把 object 转为原始类型再进行判断(调用object的valueOf/toString方法进行转换)</li>
-</ol>
-<blockquote>
-<p>对象如何转换成原始数据类型</p>
-</blockquote>
-<p>如果部署了 [Symbol.toPrimitive] 接口，那么调用此接口，若返回的不是基础数据类型，跑出错误。</p>
-<p>如果没有部署 [Symbol.toPrimitive] 接口，那么先返回 valueOf() 的值，若返回的不是基础类型的值，再返回 toString() 的值，若返回的不是基础类型的值， 则抛出异常。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//先调用 valueOf, 后调用 toString</span>
-<span class="pl-k">let</span> <span class="pl-s1">obj</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
-    <span class="pl-kos">[</span><span class="pl-v">Symbol</span><span class="pl-kos">.</span><span class="pl-c1">toPrimitive</span><span class="pl-kos">]</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-k">return</span> <span class="pl-c1">200</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">valueOf</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-k">return</span> <span class="pl-c1">300</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">toString</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-k">return</span> <span class="pl-s">'Hello'</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span>
-<span class="pl-c">//如果 valueOf 返回的不是基本数据类型，则会调用 toString， </span>
-<span class="pl-c">//如果 toString 返回的也不是基本数据类型，会抛出错误</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">obj</span> <span class="pl-c1">+</span> <span class="pl-c1">200</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//400</span></pre></div>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/738bdd3de5c5e57c92f8b4671784ce8a568325f9/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353834393332383738302664693d646464316631363166303135393766316538366166363838376630383561346126696d67747970653d30267372633d687474702533412532462532466d6d62697a2e717069632e636e2532466d6d62697a5f6a7067253246706c4149696139376d7439625147784d57344e64696376345a744239786a69623967795768705a64476961307a664c574b384e78734630456c5a4b507a475569625a796b43696136306773724d5064385078534e477576553972527725324636343025334677785f666d742533446a706567"><img src="https://camo.githubusercontent.com/738bdd3de5c5e57c92f8b4671784ce8a568325f9/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353834393332383738302664693d646464316631363166303135393766316538366166363838376630383561346126696d67747970653d30267372633d687474702533412532462532466d6d62697a2e717069632e636e2532466d6d62697a5f6a7067253246706c4149696139376d7439625147784d57344e64696376345a744239786a69623967795768705a64476961307a664c574b384e78734630456c5a4b507a475569625a796b43696136306773724d5064385078534e477576553972527725324636343025334677785f666d742533446a706567" alt="" data-canonical-src="https://timgsa.baidu.com/timg?image&amp;quality=80&amp;size=b9999_10000&amp;sec=1555849328780&amp;di=ddd1f161f01597f1e86af6887f085a4a&amp;imgtype=0&amp;src=http%3A%2F%2Fmmbiz.qpic.cn%2Fmmbiz_jpg%2FplAIia97mt9bQGxMW4Ndicv4ZtB9xjib9gyWhpZdGia0zfLWK8NxsF0ElZKPzGUibZykCia60gsrMPd8PxSNGuvU9rRw%2F640%3Fwx_fmt%3Djpeg" style="max-width:100%;"></a></p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/16" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/16/hovercard">JS 类型转换的规则是什么？</a></p>
-<hr>
-<h3>8.简述下对 webWorker 的理解？</h3>
-<p>HTML5则提出了 Web Worker 标准，表示js允许多线程，但是子线程完全受主线程控制并且不能操作dom，只有主线程可以操作dom，所以js本质上依然是单线程语言。</p>
-<p>web worker就是在js单线程执行的基础上开启一个子线程，进行程序处理，而不影响主线程的执行，当子线程执行完之后再回到主线程上，在这个过程中不影响主线程的执行。子线程与主线程之间提供了数据交互的接口postMessage和onmessage，来进行数据发送和接收。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> <span class="pl-s1">worker</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Worker</span><span class="pl-kos">(</span><span class="pl-s">'./worker.js'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//创建一个子线程</span>
-<span class="pl-s1">worker</span><span class="pl-kos">.</span><span class="pl-en">postMessage</span><span class="pl-kos">(</span><span class="pl-s">'Hello'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">worker</span><span class="pl-kos">.</span><span class="pl-en">onmessage</span> <span class="pl-c1">=</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//Hi</span>
-    <span class="pl-s1">worker</span><span class="pl-kos">.</span><span class="pl-en">terminate</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//结束线程</span>
-<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//worker.js</span>
-<span class="pl-en">onmessage</span> <span class="pl-c1">=</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//Hello</span>
-    <span class="pl-en">postMessage</span><span class="pl-kos">(</span><span class="pl-s">"Hi"</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//向主进程发送消息</span>
-<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
-<p>仅是最简示例代码，项目中通常是将一些耗时较长的代码，放在子线程中运行。</p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/17" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/17/hovercard">简述下对 webWorker 的理解</a></p>
-<hr>
-<h3>9.ES6模块和CommonJS模块的差异？</h3>
-<ol>
-<li>
-<p>ES6模块在编译时，就能确定模块的依赖关系，以及输入和输出的变量。</p>
-<p>CommonJS 模块，运行时加载。</p>
-</li>
-<li>
-<p>ES6 模块自动采用严格模式，无论模块头部是否写了 <code>"use strict";</code> (严格模式有哪些限制？[//链接])</p>
-</li>
-<li>
-<p>require 可以做动态加载，import 语句做不到，import 语句必须位于顶层作用域中。</p>
-</li>
-<li>
-<p>ES6 模块中顶层的 this 指向 undefined，ommonJS 模块的顶层 this 指向当前模块。</p>
-</li>
-<li>
-<p>CommonJS 模块输出的是一个值的拷贝，ES6 模块输出的是值的引用。</p>
-</li>
-</ol>
-<p>CommonJS 模块输出的是值的拷贝，也就是说，一旦输出一个值，模块内部的变化就影响不到这个值。如：</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//name.js</span>
-<span class="pl-k">var</span> <span class="pl-s1">name</span> <span class="pl-c1">=</span> <span class="pl-s">'William'</span><span class="pl-kos">;</span>
-<span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-s1">name</span> <span class="pl-c1">=</span> <span class="pl-s">'Yvette'</span><span class="pl-kos">,</span> <span class="pl-c1">200</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-smi">module</span><span class="pl-kos">.</span><span class="pl-c1">exports</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
-    name
-<span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-c">//index.js</span>
-<span class="pl-k">const</span> <span class="pl-s1">name</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'./name'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">name</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//William</span>
-<span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">name</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-c1">300</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//William</span></pre></div>
-<p>对比 ES6 模块看一下:</p>
-<p>ES6 模块的运行机制与 CommonJS 不一样。JS 引擎对脚本静态分析的时候，遇到模块加载命令 import ，就会生成一个只读引用。等到脚本真正执行时，再根据这个只读引用，到被加载的那个模块里面去取值。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//name.js</span>
-<span class="pl-k">var</span> <span class="pl-s1">name</span> <span class="pl-c1">=</span> <span class="pl-s">'William'</span><span class="pl-kos">;</span>
-<span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-s1">name</span> <span class="pl-c1">=</span> <span class="pl-s">'Yvette'</span><span class="pl-kos">,</span> <span class="pl-c1">200</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">export</span> <span class="pl-kos">{</span> <span class="pl-s1">name</span> <span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-c">//index.js</span>
-<span class="pl-k">import</span> <span class="pl-kos">{</span> <span class="pl-s1">name</span> <span class="pl-kos">}</span> <span class="pl-k">from</span> <span class="pl-s">'./name'</span><span class="pl-kos">;</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">name</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//William</span>
-<span class="pl-en">setTimeout</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">name</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-c1">300</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//Yvette</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/18" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/18/hovercard">ES6模块和CommonJS模块的差异？</a></p>
-<hr>
-<h3>10.浏览器事件代理机制的原理是什么？</h3>
-<p>在说浏览器事件代理机制原理之前，我们首先了解一下事件流的概念，早期浏览器，IE采用的是事件捕获事件流，而Netscape采用的则是事件捕获。"DOM2级事件"把事件流分为三个阶段，捕获阶段、目标阶段、冒泡阶段。现代浏览器也都遵循此规范。</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/a2473ce916b426657cf69829e09e1b1fcd75620b/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434539303731353332353935313534383966356338386539663038373438363533312f3239343838"><img src="https://camo.githubusercontent.com/a2473ce916b426657cf69829e09e1b1fcd75620b/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434539303731353332353935313534383966356338386539663038373438363533312f3239343838" alt="" data-canonical-src="https://note.youdao.com/yws/public/resource/f45701cc410504e71dbbcbd8861e8d0c/xmlnote/WEBRESOURCE907153259515489f5c88e9f087486531/29488" style="max-width:100%;"></a></p>
-<blockquote>
-<p>那么事件代理是什么呢？</p>
-</blockquote>
-<p>事件代理又称为事件委托，在祖先级DOM元素绑定一个事件，当触发子孙级DOM元素的事件时，利用事件冒泡的原理来触发绑定在祖先级DOM的事件。因为事件会从目标元素一层层冒泡至document对象。</p>
-<blockquote>
-<p>为什么要事件代理？</p>
-</blockquote>
-<ol>
-<li>
-<p>添加到页面上的事件数量会影响页面的运行性能，如果添加的事件过多，会导致网页的性能下降。采用事件代理的方式，可以大大减少注册事件的个数。</p>
-</li>
-<li>
-<p>事件代理的当时，某个子孙元素是动态增加的，不需要再次对其进行事件绑定。</p>
-</li>
-<li>
-<p>不用担心某个注册了事件的DOM元素被移除后，可能无法回收其事件处理程序，我们只要把事件处理程序委托给更高层级的元素，就可以避免此问题。</p>
-</li>
-</ol>
-<blockquote>
-<p>如将页面中的所有click事件都代理到document上:</p>
-</blockquote>
-<p>addEventListener 接受3个参数，分别是要处理的事件名、处理事件程序的函数和一个布尔值。布尔值默认为false。表示冒泡阶段调用事件处理程序，若设置为true，表示在捕获阶段调用事件处理程序。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">addEventListener</span><span class="pl-kos">(</span><span class="pl-s">'click'</span><span class="pl-kos">,</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">target</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-c">/**</span>
-<span class="pl-c">    * 捕获阶段调用调用事件处理程序，eventPhase是 1; </span>
-<span class="pl-c">    * 处于目标，eventPhase是2 </span>
-<span class="pl-c">    * 冒泡阶段调用事件处理程序，eventPhase是 1；</span>
-<span class="pl-c">    */</span> 
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">eventPhase</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/19" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/19/hovercard">浏览器事件代理机制的原理是什么？</a></p>
-<hr>
-<h3>11.js如何自定义事件？</h3>
-<blockquote>
-<p>自定义 DOM 事件(不考虑IE9之前版本)</p>
-</blockquote>
-<p>自定义事件有三种方法,一种是使用 <code>new Event()</code>, 另一种是 <code>createEvent('CustomEvent')</code> , 另一种是 <code>new customEvent()</code></p>
-<ol>
-<li>使用 <code>new Event()</code></li>
-</ol>
-<p>获取不到 <code>event.detail</code></p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">btn</span> <span class="pl-c1">=</span> <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">querySelector</span><span class="pl-kos">(</span><span class="pl-s">'#btn'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">ev</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Event</span><span class="pl-kos">(</span><span class="pl-s">'alert'</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-    <span class="pl-c1">bubbles</span>: <span class="pl-c1">true</span><span class="pl-kos">,</span>    <span class="pl-c">//事件是否冒泡;默认值false</span>
-    <span class="pl-c1">cancelable</span>: <span class="pl-c1">true</span><span class="pl-kos">,</span> <span class="pl-c">//事件能否被取消;默认值false</span>
-    <span class="pl-c1">composed</span>: <span class="pl-c1">false</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">addEventListener</span><span class="pl-kos">(</span><span class="pl-s">'alert'</span><span class="pl-kos">,</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">bubbles</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//true</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">cancelable</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//true</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">detail</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//undefined</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">false</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">dispatchEvent</span><span class="pl-kos">(</span><span class="pl-s1">ev</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<ol>
-<li>使用 <code>createEvent('CustomEvent')</code> (DOM3)</li>
-</ol>
-<p>要创建自定义事件，可以调用 <code>createEvent('CustomEvent')</code>，返回的对象有 initCustomEvent 方法，接受以下四个参数:</p>
-<ul>
-<li>type: 字符串，表示触发的事件类型，如此处的'alert'</li>
-<li>bubbles: 布尔值： 表示事件是否冒泡</li>
-<li>cancelable: 布尔值，表示事件是否可以取消</li>
-<li>detail: 任意值，保存在 event 对象的 detail 属性中</li>
-</ul>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">btn</span> <span class="pl-c1">=</span> <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">querySelector</span><span class="pl-kos">(</span><span class="pl-s">'#btn'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">ev</span> <span class="pl-c1">=</span> <span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">createEvent</span><span class="pl-kos">(</span><span class="pl-s">'CustomEvent'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">ev</span><span class="pl-kos">.</span><span class="pl-en">initCustomEvent</span><span class="pl-kos">(</span><span class="pl-s">'alert'</span><span class="pl-kos">,</span> <span class="pl-c1">true</span><span class="pl-kos">,</span> <span class="pl-c1">true</span><span class="pl-kos">,</span> <span class="pl-s">'button'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">addEventListener</span><span class="pl-kos">(</span><span class="pl-s">'alert'</span><span class="pl-kos">,</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">bubbles</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//true</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">cancelable</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//true</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">detail</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//button</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">false</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">dispatchEvent</span><span class="pl-kos">(</span><span class="pl-s1">ev</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<ol start="3">
-<li>使用 <code>new customEvent()</code> (DOM4)</li>
-</ol>
-<p>使用起来比 <code>createEvent('CustomEvent')</code>  更加方便</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> <span class="pl-s1">btn</span> <span class="pl-c1">=</span> <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">querySelector</span><span class="pl-kos">(</span><span class="pl-s">'#btn'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">/*</span>
-<span class="pl-c"> * 第一个参数是事件类型</span>
-<span class="pl-c"> * 第二个参数是一个对象</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} nums</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} target</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number[]</span>}</span>
 <span class="pl-c"> */</span>
-<span class="pl-k">var</span> <span class="pl-s1">ev</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">CustomEvent</span><span class="pl-kos">(</span><span class="pl-s">'alert'</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-    <span class="pl-c1">bubbles</span>: <span class="pl-s">'true'</span><span class="pl-kos">,</span>
-    <span class="pl-c1">cancelable</span>: <span class="pl-s">'true'</span><span class="pl-kos">,</span>
-    <span class="pl-c1">detail</span>: <span class="pl-s">'button'</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">addEventListener</span><span class="pl-kos">(</span><span class="pl-s">'alert'</span><span class="pl-kos">,</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">bubbles</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//true</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">cancelable</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//true</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">detail</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//button</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">false</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">btn</span><span class="pl-kos">.</span><span class="pl-en">dispatchEvent</span><span class="pl-kos">(</span><span class="pl-s1">ev</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
+<span class="pl-k">const</span> <span class="pl-en">twoSum</span> <span class="pl-c1">=</span> <span class="pl-k">function</span> <span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">,</span> <span class="pl-s1">target</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+  <span class="pl-k">const</span> <span class="pl-s1">diffs</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
+  <span class="pl-c">// 缓存数组长度</span>
+  <span class="pl-k">const</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">nums</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+  <span class="pl-c">// 遍历数组</span>
+  <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">len</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-c">// 判断当前值对应的 target 差值是否存在</span>
+    <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">diffs</span><span class="pl-kos">[</span><span class="pl-s1">target</span> <span class="pl-c1">-</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">]</span> !== <span class="pl-c1">undefined</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+      <span class="pl-c">// 若有对应差值，那么得到答案</span>
+      <span class="pl-k">return</span> <span class="pl-kos">[</span><span class="pl-s1">diffs</span><span class="pl-kos">[</span><span class="pl-s1">target</span> <span class="pl-c1">-</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-c">// 若没有对应差值，则记录当前值</span>
+    <span class="pl-s1">diffs</span><span class="pl-kos">[</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-s1">i</span><span class="pl-kos">;</span>
+  <span class="pl-kos">}</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>三数之和 <g-emoji class="g-emoji" alias="lion" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f981.png">🦁</g-emoji></h2>
 <blockquote>
-<p>自定义非 DOM 事件(观察者模式)</p>
+<p>题目难度<code>medium</code>，涉及到的算法知识有数组、双指针</p>
 </blockquote>
-<p>EventTarget类型有一个单独的属性handlers，用于存储事件处理程序（观察者）。</p>
-<p>addHandler() 用于注册给定类型事件的事件处理程序；</p>
-<p>fire() 用于触发一个事件；</p>
-<p>removeHandler() 用于注销某个事件类型的事件处理程序。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-v">EventTarget</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-    <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
+<h3>题目描述</h3>
+<p>给你一个包含<code>n</code>个整数的数组<code>nums</code>，判断<code>nums</code>中是否存在三个元素<code>a</code>，<code>b</code>，<code>c</code> ，使得<code>a + b + c = 0</code>。请你找出所有满足条件且不重复的三元组。</p>
+<p>注意：答案中不可以包含重复的三元组。</p>
+<p>示例：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">给定数组</span> <span class="pl-s1">nums</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">-</span><span class="pl-c1">4</span><span class="pl-kos">]</span><span class="pl-kos"></span><span class="pl-s1">，</span>
 
-<span class="pl-v">EventTarget</span><span class="pl-kos">.</span><span class="pl-c1">prototype</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
-    <span class="pl-c1">constructor</span>:<span class="pl-v">EventTarget</span><span class="pl-kos">,</span>
-    <span class="pl-en">addHandler</span>:<span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">type</span><span class="pl-kos">,</span><span class="pl-s1">handler</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-k">typeof</span> <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">type</span><span class="pl-kos">]</span> <span class="pl-c1">===</span> <span class="pl-s">"undefined"</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-            <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">type</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+<span class="pl-s1">满足要求的三元组集合为：</span>
+<span class="pl-kos">[</span>
+  <span class="pl-kos">[</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">,</span>
+  <span class="pl-kos">[</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">]</span>
+<span class="pl-kos">]</span></pre></div>
+<h3>思路分析</h3>
+<p>和上面的<code>两数之和</code>一样，如果不认真思考，最快的方式可能就是多层遍历了。但有了前车之鉴，我们同样可以把求和问题变为求差问题：固定其中一个数，在剩下的数中寻找是否有两个数的和这个固定数相加是等于 0 的。</p>
+<p>这里我们采用<code>双指针法</code>来解决问题，相比三层循环，效率会大大提升。</p>
+<blockquote>
+<p>双指针法的适用范围比较广，一般像求和、比大小的都可以用它来解决。但是有一个前提：数组必须有序</p>
+</blockquote>
+<p>因此我们的第一步就是先将数组进行排序：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">// 给 nums 排序</span>
+<span class="pl-s1">nums</span> <span class="pl-c1">=</span> <span class="pl-s1">nums</span><span class="pl-kos">.</span><span class="pl-en">sort</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">a</span><span class="pl-kos">,</span><span class="pl-s1">b</span><span class="pl-kos">)</span><span class="pl-c1">=&gt;</span><span class="pl-kos">{</span>
+    <span class="pl-k">return</span> <span class="pl-s1">a</span><span class="pl-c1">-</span><span class="pl-s1">b</span>
+<span class="pl-kos">}</span><span class="pl-kos">)</span></pre></div>
+<p>然后对数组进行遍历，每遍历到哪个数字，就固定当前的数字。同时左指针指向该数字后面的紧邻的那个数字，右指针指向数组末尾。然后左右指针分别向中间靠拢：<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/5af7cc6e6db85b9bd5d9bbef70d8c8d07b12a1d0/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f37663938613533322d323032302d346661332d383131322d3433653731336136373866662e706e67"><img src="https://camo.githubusercontent.com/5af7cc6e6db85b9bd5d9bbef70d8c8d07b12a1d0/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f37663938613533322d323032302d346661332d383131322d3433653731336136373866662e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/7f98a532-2020-4fa3-8112-43e713a678ff.png" style="max-width:100%;"></a><br>
+每次指针移动一次位置，就计算一下两个指针指向数字之和加上固定的那个数之后，是否等于 0。如果是，那么我们就得到了一个目标组合；否则，分两种情况来看：</p>
+<ul>
+<li>相加之和大于 0，说明右侧的数偏大了，右指针左移</li>
+<li>相加之和小于 0，说明左侧的数偏小了，左指针右移</li>
+</ul>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} nums</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number[][]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">const</span> <span class="pl-en">threeSum</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-c">// 用于存放结果数组</span>
+    <span class="pl-k">let</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+    <span class="pl-c">// 目标值为0</span>
+    <span class="pl-k">let</span> <span class="pl-s1">sum</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span>
+    <span class="pl-c">// 给 nums 排序</span>
+    <span class="pl-s1">nums</span> <span class="pl-c1">=</span> <span class="pl-s1">nums</span><span class="pl-kos">.</span><span class="pl-en">sort</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">a</span><span class="pl-kos">,</span><span class="pl-s1">b</span><span class="pl-kos">)</span><span class="pl-c1">=&gt;</span><span class="pl-kos">{</span>
+        <span class="pl-k">return</span> <span class="pl-s1">a</span><span class="pl-c1">-</span><span class="pl-s1">b</span>
+    <span class="pl-kos">}</span><span class="pl-kos">)</span>
+    <span class="pl-c">// 缓存数组长度</span>
+    <span class="pl-k">const</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">nums</span><span class="pl-kos">.</span><span class="pl-c1">length</span>
+    <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span><span class="pl-c1">=</span><span class="pl-c1">0</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">&lt;</span><span class="pl-s1">len</span><span class="pl-c1">-</span><span class="pl-c1">2</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-c">// 左指针 j</span>
+        <span class="pl-k">let</span> <span class="pl-s1">j</span><span class="pl-c1">=</span><span class="pl-s1">i</span><span class="pl-c1">+</span><span class="pl-c1">1</span>
+        <span class="pl-c">// 右指针k</span>
+        <span class="pl-k">let</span> <span class="pl-s1">k</span><span class="pl-c1">=</span><span class="pl-s1">len</span><span class="pl-c1">-</span><span class="pl-c1">1</span>
+        <span class="pl-c">// 如果遇到重复的数字，则跳过</span>
+        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-c1">&gt;</span><span class="pl-c1">0</span><span class="pl-c1">&amp;&amp;</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-c1">===</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">continue</span>
         <span class="pl-kos">}</span>
-        <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">type</span><span class="pl-kos">]</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">handler</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">fire</span>:<span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-        <span class="pl-k">if</span><span class="pl-kos">(</span>!<span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">target</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-            <span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">target</span> <span class="pl-c1">=</span> <span class="pl-smi">this</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span>
-        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">type</span><span class="pl-kos">]</span> <span class="pl-k">instanceof</span> <span class="pl-v">Array</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-            <span class="pl-k">const</span> <span class="pl-s1">handlers</span> <span class="pl-c1">=</span> <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">type</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
-            <span class="pl-s1">handlers</span><span class="pl-kos">.</span><span class="pl-en">forEach</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">handler</span><span class="pl-kos">)</span><span class="pl-c1">=&gt;</span><span class="pl-kos">{</span>
-                <span class="pl-s1">handler</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">removeHandler</span>:<span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">type</span><span class="pl-kos">,</span><span class="pl-s1">handler</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">type</span><span class="pl-kos">]</span> <span class="pl-k">instanceof</span> <span class="pl-v">Array</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-            <span class="pl-k">const</span> <span class="pl-s1">handlers</span> <span class="pl-c1">=</span> <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">type</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
-            <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">var</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">,</span><span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">handlers</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">len</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-                <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">handlers</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span> <span class="pl-c1">===</span> <span class="pl-s1">handler</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-                    <span class="pl-k">break</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">j</span><span class="pl-c1">&lt;</span><span class="pl-s1">k</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-c">// 三数之和小于0，左指针前进</span>
+            <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-c1">+</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-c1">+</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-kos">]</span><span class="pl-c1">&lt;</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
+                <span class="pl-s1">j</span><span class="pl-c1">++</span>
+               <span class="pl-c">// 处理左指针元素重复的情况</span>
+               <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">j</span><span class="pl-c1">&lt;</span><span class="pl-s1">k</span><span class="pl-c1">&amp;&amp;</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-c1">===</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                    <span class="pl-s1">j</span><span class="pl-c1">++</span>
+                <span class="pl-kos">}</span>
+            <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-c1">+</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-c1">+</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-kos">]</span><span class="pl-c1">&gt;</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
+                <span class="pl-c">// 三数之和大于0，右指针后退</span>
+                <span class="pl-s1">k</span><span class="pl-c1">--</span>
+
+               <span class="pl-c">// 处理右指针元素重复的情况</span>
+               <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">j</span><span class="pl-c1">&lt;</span><span class="pl-s1">k</span><span class="pl-c1">&amp;&amp;</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-kos">]</span><span class="pl-c1">===</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                    <span class="pl-s1">k</span><span class="pl-c1">--</span>
+                <span class="pl-kos">}</span>
+            <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
+                <span class="pl-c">// 得到目标数字组合，推入结果数组</span>
+                <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">,</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-kos">,</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-kos">]</span><span class="pl-kos">]</span><span class="pl-kos">)</span>
+
+                <span class="pl-c">// 左右指针一起前进</span>
+                <span class="pl-s1">j</span><span class="pl-c1">++</span>
+                <span class="pl-s1">k</span><span class="pl-c1">--</span>
+
+                <span class="pl-c">// 若左指针元素重复，跳过</span>
+                <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">j</span><span class="pl-c1">&lt;</span><span class="pl-s1">k</span><span class="pl-c1">&amp;&amp;</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-c1">===</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                    <span class="pl-s1">j</span><span class="pl-c1">++</span>
+                <span class="pl-kos">}</span>
+
+               <span class="pl-c">// 若右指针元素重复，跳过</span>
+               <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">j</span><span class="pl-c1">&lt;</span><span class="pl-s1">k</span><span class="pl-c1">&amp;&amp;</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-kos">]</span><span class="pl-c1">===</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">k</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                    <span class="pl-s1">k</span><span class="pl-c1">--</span>
                 <span class="pl-kos">}</span>
             <span class="pl-kos">}</span>
-            <span class="pl-s1">handlers</span><span class="pl-kos">.</span><span class="pl-en">splice</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-kos">,</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
         <span class="pl-kos">}</span>
     <span class="pl-kos">}</span>
-<span class="pl-kos">}</span>
-<span class="pl-c">//使用</span>
-<span class="pl-k">function</span> <span class="pl-en">handleMessage</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">event</span><span class="pl-kos">.</span><span class="pl-c1">message</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-c">//创建一个新对象</span>
-<span class="pl-k">var</span> <span class="pl-s1">target</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">EventTarget</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">//添加一个事件处理程序</span>
-<span class="pl-s1">target</span><span class="pl-kos">.</span><span class="pl-en">addHandler</span><span class="pl-kos">(</span><span class="pl-s">"message"</span><span class="pl-kos">,</span> <span class="pl-s1">handleMessage</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">//触发事件</span>
-<span class="pl-s1">target</span><span class="pl-kos">.</span><span class="pl-en">fire</span><span class="pl-kos">(</span><span class="pl-kos">{</span><span class="pl-c1">type</span>:<span class="pl-s">"message"</span><span class="pl-kos">,</span> <span class="pl-c1">message</span>:<span class="pl-s">"Hi"</span><span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//Hi</span>
-<span class="pl-c">//删除事件处理程序</span>
-<span class="pl-s1">target</span><span class="pl-kos">.</span><span class="pl-en">removeHandler</span><span class="pl-kos">(</span><span class="pl-s">"message"</span><span class="pl-kos">,</span><span class="pl-s1">handleMessage</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-c">//再次触发事件，没有事件处理程序</span>
-<span class="pl-s1">target</span><span class="pl-kos">.</span><span class="pl-en">fire</span><span class="pl-kos">(</span><span class="pl-kos">{</span><span class="pl-c1">type</span>:<span class="pl-s">"message"</span><span class="pl-kos">,</span><span class="pl-c1">message</span>: <span class="pl-s">"Hi"</span><span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/20" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/20/hovercard">js如何自定义事件？</a></p>
-<hr>
-<h3>12.跨域的方法有哪些？原理是什么？</h3>
-<p>知其然知其所以然，在说跨域方法之前，我们先了解下什么叫跨域，浏览器有同源策略，只有当“协议”、“域名”、“端口号”都相同时，才能称之为是同源，其中有一个不同，即是跨域。</p>
-<p>那么同源策略的作用是什么呢？同源策略限制了从同一个源加载的文档或脚本如何与来自另一个源的资源进行交互。这是一个用于隔离潜在恶意文件的重要安全机制。</p>
-<p>那么我们又为什么需要跨域呢？一是前端和服务器分开部署，接口请求需要跨域，二是我们可能会加载其它网站的页面作为iframe内嵌。</p>
-<blockquote>
-<p><strong>跨域的方法有哪些？</strong></p>
-</blockquote>
-<blockquote>
-<p>常用的跨域方法</p>
-</blockquote>
-<ol>
-<li>jsonp</li>
-</ol>
-<p>尽管浏览器有同源策略，但是 <code>&lt;script&gt;</code> 标签的 src 属性不会被同源策略所约束，可以获取任意服务器上的脚本并执行。jsonp 通过插入script标签的方式来实现跨域，参数只能通过url传入，仅能支持get请求。</p>
-<p>实现原理:</p>
-<p>Step1: 创建 callback 方法</p>
-<p>Step2: 插入 script 标签</p>
-<p>Step3: 后台接受到请求，解析前端传过去的 callback 方法，返回该方法的调用，并且数据作为参数传入该方法</p>
-<p>Step4: 前端执行服务端返回的方法调用</p>
-<p>下面代码仅为说明 jsonp 原理，项目中请使用成熟的库。分别看一下前端和服务端的简单实现：</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//前端代码</span>
-<span class="pl-k">function</span> <span class="pl-en">jsonp</span><span class="pl-kos">(</span><span class="pl-kos">{</span><span class="pl-s1">url</span><span class="pl-kos">,</span> <span class="pl-s1">params</span><span class="pl-kos">,</span> <span class="pl-s1">cb</span><span class="pl-kos">}</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-k">new</span> <span class="pl-v">Promise</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">resolve</span><span class="pl-kos">,</span> <span class="pl-s1">reject</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-        <span class="pl-c">//创建script标签</span>
-        <span class="pl-k">let</span> <span class="pl-s1">script</span> <span class="pl-c1">=</span> <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">createElement</span><span class="pl-kos">(</span><span class="pl-s">'script'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-c">//将回调函数挂在 window 上</span>
-        <span class="pl-smi">window</span><span class="pl-kos">[</span><span class="pl-s1">cb</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-s1">resolve</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-            <span class="pl-c">//代码执行后，删除插入的script标签</span>
-            <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-c1">body</span><span class="pl-kos">.</span><span class="pl-en">removeChild</span><span class="pl-kos">(</span><span class="pl-s1">script</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span>
-        <span class="pl-c">//回调函数加在请求地址上</span>
-        <span class="pl-s1">params</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>...<span class="pl-s1">params</span><span class="pl-kos">,</span> cb<span class="pl-kos">}</span> <span class="pl-c">//wb=b&amp;cb=show</span>
-        <span class="pl-k">let</span> <span class="pl-s1">arrs</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
-        <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">key</span> <span class="pl-k">in</span> <span class="pl-s1">params</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-s1">arrs</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s">`<span class="pl-s1"><span class="pl-kos">${</span><span class="pl-s1">key</span><span class="pl-kos">}</span></span>=<span class="pl-s1"><span class="pl-kos">${</span><span class="pl-s1">params</span><span class="pl-kos">[</span><span class="pl-s1">key</span><span class="pl-kos">]</span><span class="pl-kos">}</span></span>`</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-kos">}</span>
-        <span class="pl-s1">script</span><span class="pl-kos">.</span><span class="pl-c1">src</span> <span class="pl-c1">=</span> <span class="pl-s">`<span class="pl-s1"><span class="pl-kos">${</span><span class="pl-s1">url</span><span class="pl-kos">}</span></span>?<span class="pl-s1"><span class="pl-kos">${</span><span class="pl-s1">arrs</span><span class="pl-kos">.</span><span class="pl-en">join</span><span class="pl-kos">(</span><span class="pl-s">'&amp;'</span><span class="pl-kos">)</span><span class="pl-kos">}</span></span>`</span><span class="pl-kos">;</span>
-        <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-c1">body</span><span class="pl-kos">.</span><span class="pl-en">appendChild</span><span class="pl-kos">(</span><span class="pl-s1">script</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-c">//使用</span>
-<span class="pl-k">function</span> <span class="pl-en">sayHi</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-en">jsonp</span><span class="pl-kos">(</span><span class="pl-kos">{</span>
-    <span class="pl-c1">url</span>: <span class="pl-s">'http://localhost:3000/say'</span><span class="pl-kos">,</span>
-    <span class="pl-c1">params</span>: <span class="pl-kos">{</span>
-        <span class="pl-c">//code</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-c1">cb</span>: <span class="pl-s">'sayHi'</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">then</span><span class="pl-kos">(</span><span class="pl-s1">data</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//express启动一个后台服务</span>
-<span class="pl-k">let</span> <span class="pl-s1">express</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'express'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">app</span> <span class="pl-c1">=</span> <span class="pl-s1">express</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
 
-<span class="pl-s1">app</span><span class="pl-kos">.</span><span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-s">'/say'</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">req</span><span class="pl-kos">,</span> <span class="pl-s1">res</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-k">let</span> <span class="pl-kos">{</span>cb<span class="pl-kos">}</span> <span class="pl-c1">=</span> <span class="pl-s1">req</span><span class="pl-kos">.</span><span class="pl-c1">query</span><span class="pl-kos">;</span> <span class="pl-c">//获取传来的callback函数名，cb是key</span>
-    <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">send</span><span class="pl-kos">(</span><span class="pl-s">`<span class="pl-s1"><span class="pl-kos">${</span><span class="pl-s1">cb</span><span class="pl-kos">}</span></span>('Hello!')`</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">app</span><span class="pl-kos">.</span><span class="pl-en">listen</span><span class="pl-kos">(</span><span class="pl-c1">3000</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>从今天起，jsonp的原理就要了然于心啦~</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/da697b5a89d21a4544f5e0cf8de43c929168f013/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353735373433333833392664693d363736623835333332326663393662656330336563643534383664363965313526696d67747970653d30267372633d687474702533412532462532467777772e313771712e636f6d253246696d675f6269616f71696e6725324636393837313631332e6a706567"><img src="https://camo.githubusercontent.com/da697b5a89d21a4544f5e0cf8de43c929168f013/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353735373433333833392664693d363736623835333332326663393662656330336563643534383664363965313526696d67747970653d30267372633d687474702533412532462532467777772e313771712e636f6d253246696d675f6269616f71696e6725324636393837313631332e6a706567" alt="" data-canonical-src="https://timgsa.baidu.com/timg?image&amp;quality=80&amp;size=b9999_10000&amp;sec=1555757433839&amp;di=676b853322fc96bec03ecd5486d69e15&amp;imgtype=0&amp;src=http%3A%2F%2Fwww.17qq.com%2Fimg_biaoqing%2F69871613.jpeg" style="max-width:100%;"></a></p>
-<ol start="2">
-<li>cors</li>
-</ol>
-<p>jsonp 只能支持 get 请求，cors 可以支持多种请求。cors 并不需要前端做什么工作。</p>
+    <span class="pl-c">// 返回结果数组</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>盛最多水的容器 <g-emoji class="g-emoji" alias="tumbler_glass" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f943.png">🥃</g-emoji></h2>
 <blockquote>
-<p>简单跨域请求:</p>
+<p>题目难度<code>medium</code>，涉及到的算法知识有数组、双指针</p>
 </blockquote>
-<p>只要服务器设置的Access-Control-Allow-Origin Header和请求来源匹配，浏览器就允许跨域</p>
-<ol>
-<li>请求的方法是get，head或者post。</li>
-<li>Content-Type是application/x-www-form-urlencoded, multipart/form-data 或 text/plain中的一个值，或者不设置也可以，一般默认就是application/x-www-form-urlencoded。</li>
-<li>请求中没有自定义的HTTP头部，如x-token。(应该是这几种头部 Accept，Accept-Language，Content-Language，Last-Event-ID，Content-Type）</li>
-</ol>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//简单跨域请求</span>
-<span class="pl-s1">app</span><span class="pl-kos">.</span><span class="pl-en">use</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">req</span><span class="pl-kos">,</span> <span class="pl-s1">res</span><span class="pl-kos">,</span> <span class="pl-s1">next</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">setHeader</span><span class="pl-kos">(</span><span class="pl-s">'Access-Control-Allow-Origin'</span><span class="pl-kos">,</span> <span class="pl-s">'XXXX'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<blockquote>
-<p>带预检(Preflighted)的跨域请求</p>
-</blockquote>
-<p>不满于简单跨域请求的，即是带预检的跨域请求。服务端需要设置 Access-Control-Allow-Origin (允许跨域资源请求的域) 、 Access-Control-Allow-Methods (允许的请求方法) 和 Access-Control-Allow-Headers (允许的请求头)</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-s1">app</span><span class="pl-kos">.</span><span class="pl-en">use</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">req</span><span class="pl-kos">,</span> <span class="pl-s1">res</span><span class="pl-kos">,</span> <span class="pl-s1">next</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">setHeader</span><span class="pl-kos">(</span><span class="pl-s">'Access-Control-Allow-Origin'</span><span class="pl-kos">,</span> <span class="pl-s">'XXX'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">setHeader</span><span class="pl-kos">(</span><span class="pl-s">'Access-Control-Allow-Headers'</span><span class="pl-kos">,</span> <span class="pl-s">'XXX'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//允许返回的头</span>
-    <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">setHeader</span><span class="pl-kos">(</span><span class="pl-s">'Access-Control-Allow-Methods'</span><span class="pl-kos">,</span> <span class="pl-s">'XXX'</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//允许使用put方法请求接口</span>
-    <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">setHeader</span><span class="pl-kos">(</span><span class="pl-s">'Access-Control-Max-Age'</span><span class="pl-kos">,</span> <span class="pl-c1">6</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//预检的存活时间</span>
-    <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">req</span><span class="pl-kos">.</span><span class="pl-c1">method</span> <span class="pl-c1">===</span> <span class="pl-s">"OPTIONS"</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">end</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//如果method是OPTIONS，不做处理</span>
+<h3>题目描述</h3>
+<p>给你 n 个非负整数 a1，a2，...，an，每个数代表坐标中的一个点 &nbsp;(i,&nbsp;ai) 。在坐标内画 n 条垂直线，垂直线 i&nbsp; 的两个端点分别为 &nbsp;(i,&nbsp;ai) 和 (i, 0)。找出其中的两条线，使得它们与 &nbsp;x&nbsp; 轴共同构成的容器可以容纳最多的水。</p>
+<p>说明：你不能倾斜容器，且 &nbsp;n&nbsp; 的值至少为 2。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/74706caca8e040b5ac2a4d675522049ece6d11be/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31653337623936642d633365312d343165612d616636332d3332396262343931303630342e6a7067"><img src="https://camo.githubusercontent.com/74706caca8e040b5ac2a4d675522049ece6d11be/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31653337623936642d633365312d343165612d616636332d3332396262343931303630342e6a7067" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/1e37b96d-c3e1-41ea-af63-329bb4910604.jpg" style="max-width:100%;"></a><br>
+图中垂直线代表输入数组[1,8,6,2,5,4,8,3,7]。在此情况下，容器能够容纳水（表示为蓝色部分）的最大值为 49。</p>
+<p>示例：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：</span><span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">8</span><span class="pl-kos">,</span><span class="pl-c1">6</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">5</span><span class="pl-kos">,</span><span class="pl-c1">4</span><span class="pl-kos">,</span><span class="pl-c1">8</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">7</span><span class="pl-kos">]</span>
+<span class="pl-s1">输出：49</span></pre></div>
+<h3>思路分析</h3>
+<p>首先，我们能快速想到的一种方法：两两进行求解，计算可以承载的水量。 然后不断更新最大值，最后返回最大值即可。</p>
+<p>这种解法，需要两层循环，时间复杂度是<code>O(n^2)</code>。这种相对来说比较暴力，对应就是<code>暴力法</code>。</p>
+<h4>暴力法</h4>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} height</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">maxArea</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">height</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">max</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">&lt;</span> <span class="pl-s1">height</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-s1">i</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">;</span> <span class="pl-s1">j</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">height</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span><span class="pl-s1">j</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">let</span> <span class="pl-s1">area</span> <span class="pl-c1">=</span> <span class="pl-kos">(</span><span class="pl-s1">j</span> <span class="pl-c1">-</span> <span class="pl-s1">i</span><span class="pl-kos">)</span> * <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">min</span><span class="pl-kos">(</span><span class="pl-s1">height</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">height</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-s1">max</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">max</span><span class="pl-kos">(</span><span class="pl-s1">max</span><span class="pl-kos">,</span> <span class="pl-s1">area</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
     <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>更多CORS的知识可以访问: <a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Access_control_CORS" rel="nofollow">HTTP访问控制（CORS）<br>
-</a></p>
-<ol start="3">
-<li>nginx 反向代理</li>
-</ol>
-<p>使用nginx反向代理实现跨域，只需要修改nginx的配置即可解决跨域问题。</p>
-<p>A网站向B网站请求某个接口时，向B网站发送一个请求，nginx根据配置文件接收这个请求，代替A网站向B网站来请求。<br>
-nginx拿到这个资源后再返回给A网站，以此来解决了跨域问题。</p>
-<p>例如nginx的端口号为 8090，需要请求的服务器端口号为 3000。（localhost:8090 请求 localhost:3000/say）</p>
-<p>nginx配置如下:</p>
-<pre><code>server {
-    listen       8090;
 
-    server_name  localhost;
+    <span class="pl-k">return</span> <span class="pl-s1">max</span><span class="pl-kos">;</span>
+<span class="pl-kos">}</span></pre></div>
+<p>那么有没有更好的办法呢？答案是肯定有。</p>
+<p>其实有点类似<code>双指针</code>的概念，左指针指向下标 0，右指针指向<code>length-1</code>。然后分别从左右两侧向中间移动，每次取小的那个值（因为水的高度肯定是以小的那个为准）。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/635d61e01ac818d9e14f6b313023b95b488a0bc4/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f36636636336665322d626639332d346438612d616265352d6662653339323132343139342e706e67"><img src="https://camo.githubusercontent.com/635d61e01ac818d9e14f6b313023b95b488a0bc4/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f36636636336665322d626639332d346438612d616265352d6662653339323132343139342e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/6cf63fe2-bf93-4d8a-abe5-fbe392124194.png" style="max-width:100%;"></a></p>
+<p>如果左侧小于右侧，则<code>i++</code>，否则<code>j--</code>（这一步其实就是取所有高度中比较高的，我们知道面积等于<code>长*宽</code>）。对应就是<code>双指针 动态滑窗</code></p>
+<h4>双指针 动态滑窗</h4>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} height</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">maxArea</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">height</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">max</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">let</span> <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-s1">height</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">;</span>
+    <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">j</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-s1">minHeight</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">min</span><span class="pl-kos">(</span><span class="pl-s1">height</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">height</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-kos">)</span>
+        <span class="pl-k">let</span> <span class="pl-s1">area</span> <span class="pl-c1">=</span> <span class="pl-kos">(</span><span class="pl-s1">j</span> <span class="pl-c1">-</span> <span class="pl-s1">i</span><span class="pl-kos">)</span>*<span class="pl-s1">minHeight</span><span class="pl-kos">;</span>
+        <span class="pl-s1">max</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">max</span><span class="pl-kos">(</span><span class="pl-s1">max</span><span class="pl-kos">,</span> <span class="pl-s1">area</span><span class="pl-kos">)</span>
+        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">height</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">height</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">i</span><span class="pl-c1">++</span>
+        <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">j</span><span class="pl-c1">--</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">max</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>爬楼梯 <g-emoji class="g-emoji" alias="roller_coaster" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3a2.png">🎢</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>easy</code>，涉及到的算法知识有斐波那契数列、动态规划。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>假设你正在爬楼梯。需要 n&nbsp; 阶你才能到达楼顶。</p>
+<p>每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？</p>
+<p>注意：给定 n 是一个正整数。</p>
+<p>示例 1：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：</span> <span class="pl-c1">2</span>
+<span class="pl-s1">输出：</span> <span class="pl-c1">2</span>
+<span class="pl-s1">解释：</span> <span class="pl-s1">有两种方法可以爬到楼顶。</span>
+<span class="pl-c1">1.</span>  <span class="pl-c1">1</span> <span class="pl-s1">阶</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span> <span class="pl-s1">阶</span>
+<span class="pl-c1">2.</span>  <span class="pl-c1">2</span> <span class="pl-s1">阶</span></pre></div>
+<p>示例 2：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：</span> <span class="pl-c1">3</span>
+<span class="pl-s1">输出：</span> <span class="pl-c1">3</span>
+<span class="pl-s1">解释：</span> <span class="pl-s1">有三种方法可以爬到楼顶。</span>
+<span class="pl-c1">1.</span>  <span class="pl-c1">1</span> <span class="pl-s1">阶</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span> <span class="pl-s1">阶</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span> <span class="pl-s1">阶</span>
+<span class="pl-c1">2.</span>  <span class="pl-c1">1</span> <span class="pl-s1">阶</span> <span class="pl-c1">+</span> <span class="pl-c1">2</span> <span class="pl-s1">阶</span>
+<span class="pl-c1">3.</span>  <span class="pl-c1">2</span> <span class="pl-s1">阶</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span> <span class="pl-s1">阶</span></pre></div>
+<h3>思路分析</h3>
+<p>这道题目是一道非常高频的面试题目，也是一道非常经典的<code>斐波那契数列</code>类型的题目。</p>
+<p>解决本道题目我们会用到动态规划的算法思想-可以分成多个子问题，爬第 n 阶楼梯的方法数量，等于 2 部分之和：</p>
+<ul>
+<li>爬上<code>n−1</code>阶楼梯的方法数量。因为再爬 1 阶就能到第 n 阶</li>
+<li>爬上<code>n−2</code>阶楼梯的方法数量，因为再爬 2 阶就能到第 n 阶<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/016d233622d7970aee9587625bcfb605b76748e1/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f37313431343063622d356630332d346433662d616432662d6231326365386530323438622e706e67"><img src="https://camo.githubusercontent.com/016d233622d7970aee9587625bcfb605b76748e1/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f37313431343063622d356630332d346433662d616432662d6231326365386530323438622e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/714140cb-5f03-4d3f-ad2f-b12ce8e0248b.png" style="max-width:100%;"></a></li>
+</ul>
+<p>可以得到公式：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">n</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">n</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">n</span><span class="pl-c1">-</span><span class="pl-c1">2</span><span class="pl-kos">]</span></pre></div>
+<p>同时需要做如下初始化：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span>
+<span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span></pre></div>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} n</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">climbStairs</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">n</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">climbs</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span>
+    <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">2</span><span class="pl-kos">;</span> <span class="pl-s1">i</span>&lt;= <span class="pl-s1">n</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">-</span><span class="pl-c1">2</span><span class="pl-kos">]</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">climbs</span><span class="pl-kos">[</span><span class="pl-s1">n</span><span class="pl-kos">]</span>
 
-    location / {
-        root   /Users/liuyan35/Test/Study/CORS/1-jsonp;
-        index  index.html index.htm;
-    }
-    location /say {
-        rewrite  ^/say/(.*)$ /$1 break;
-        proxy_pass   http://localhost:3000;
-        add_header 'Access-Control-Allow-Origin' '*';
-        add_header 'Access-Control-Allow-Credentials' 'true';
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-    }
-    # others
-}
-</code></pre>
-<ol start="4">
-<li>websocket</li>
-</ol>
-<p>Websocket 是 HTML5 的一个持久化的协议，它实现了浏览器与服务器的全双工通信，同时也是跨域的一种解决方案。</p>
-<p>Websocket 不受同源策略影响，只要服务器端支持，无需任何配置就支持跨域。</p>
-<p>前端页面在 8080 的端口。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">socket</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">WebSocket</span><span class="pl-kos">(</span><span class="pl-s">'ws://localhost:3000'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//协议是ws</span>
-<span class="pl-s1">socket</span><span class="pl-kos">.</span><span class="pl-en">onopen</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-s1">socket</span><span class="pl-kos">.</span><span class="pl-en">send</span><span class="pl-kos">(</span><span class="pl-s">'Hi,你好'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-s1">socket</span><span class="pl-kos">.</span><span class="pl-en">onmessage</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">data</span><span class="pl-kos">)</span>
-<span class="pl-kos">}</span></pre></div>
-<p>服务端 3000端口。可以看出websocket无需做跨域配置。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-v">WebSocket</span> <span class="pl-c1">=</span> <span class="pl-en">require</span><span class="pl-kos">(</span><span class="pl-s">'ws'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">wss</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">WebSocket</span><span class="pl-kos">.</span><span class="pl-c1">Server</span><span class="pl-kos">(</span><span class="pl-kos">{</span><span class="pl-c1">port</span>: <span class="pl-c1">3000</span><span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">wss</span><span class="pl-kos">.</span><span class="pl-en">on</span><span class="pl-kos">(</span><span class="pl-s">'connection'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">ws</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-s1">ws</span><span class="pl-kos">.</span><span class="pl-en">on</span><span class="pl-kos">(</span><span class="pl-s">'message'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//接受到页面发来的消息'Hi,你好'</span>
-        <span class="pl-s1">ws</span><span class="pl-kos">.</span><span class="pl-en">send</span><span class="pl-kos">(</span><span class="pl-s">'Hi'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//向页面发送消息</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<ol start="5">
-<li>postMessage</li>
-</ol>
-<p>postMessage 通过用作前端页面之前的跨域，如父页面与iframe页面的跨域。window.postMessage方法，允许跨窗口通信，不论这两个窗口是否同源。</p>
-<p>话说工作中两个页面之前需要通信的情况并不多，我本人工作中，仅使用过两次，一次是H5页面中发送postMessage信息，ReactNative的webview中接收此此消息，并作出相应处理。另一次是可轮播的页面，某个轮播页使用的是iframe页面，为了解决滑动的事件冲突，iframe页面中去监听手势，发送消息告诉父页面是否左滑和右滑。</p>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>环形链表 <g-emoji class="g-emoji" alias="doughnut" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f369.png">🍩</g-emoji></h2>
 <blockquote>
-<p>子页面向父页面发消息</p>
+<p>题目难度<code>easy</code>，涉及到的算法知识有链表、快慢指针。</p>
 </blockquote>
-<p>父页面</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-en">addEventListener</span><span class="pl-kos">(</span><span class="pl-s">'message'</span><span class="pl-kos">,</span> <span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">this</span><span class="pl-kos">.</span><span class="pl-c1">props</span><span class="pl-kos">.</span><span class="pl-en">movePage</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span><span class="pl-kos">,</span> <span class="pl-c1">false</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>子页面(iframe):</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-c">/*左滑*/</span><span class="pl-s1"></span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-c1">parent</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-c1">parent</span><span class="pl-kos">.</span><span class="pl-en">postMessage</span><span class="pl-kos">(</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s">'*'</span><span class="pl-kos">)</span>
-<span class="pl-kos">}</span><span class="pl-k">else</span> <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-c">/*右滑*/</span><span class="pl-s1"></span><span class="pl-kos">)</span><span class="pl-kos">{</span>
-    <span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-c1">parent</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-c1">parent</span><span class="pl-kos">.</span><span class="pl-en">postMessage</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s">'*'</span><span class="pl-kos">)</span>
-<span class="pl-kos">}</span></pre></div>
+<h3>题目描述</h3>
+<p>给定一个链表，判断链表中是否有环。</p>
+<p>为了表示给定链表中的环，我们使用整数 pos 来表示链表尾连接到链表中的位置（索引从 0 开始）。 如果 pos 是 -1，则在该链表中没有环。</p>
+<p>示例 1：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：head</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">0</span><span class="pl-kos">,</span><span class="pl-c1">-</span><span class="pl-c1">4</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">pos</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span>
+<span class="pl-s1">输出：true</span>
+<span class="pl-s1">解释：链表中有一个环，其尾部连接到第二个节点。</span></pre></div>
+<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/09fc74865a283af72c9b45d3133a6e63bded646e/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31333936363062632d653738312d343962382d386637302d3038363333343134306132622e706e67"><img src="https://camo.githubusercontent.com/09fc74865a283af72c9b45d3133a6e63bded646e/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31333936363062632d653738312d343962382d386637302d3038363333343134306132622e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/139660bc-e781-49b8-8f70-086334140a2b.png" style="max-width:100%;"></a></p>
+<p>示例 2：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：head</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">pos</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span>
+<span class="pl-s1">输出：true</span>
+<span class="pl-s1">解释：链表中有一个环，其尾部连接到第一个节点。</span></pre></div>
+<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/59457f3f2cca2eadf8a65afb27d8f83daa328209/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f36386633396363302d383437622d343064632d383936302d6138666361656437626636642e706e67"><img src="https://camo.githubusercontent.com/59457f3f2cca2eadf8a65afb27d8f83daa328209/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f36386633396363302d383437622d343064632d383936302d6138666361656437626636642e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/68f39cc0-847b-40dc-8960-a8fcaed7bf6d.png" style="max-width:100%;"></a></p>
+<p>示例 3：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：head</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">pos</span> <span class="pl-c1">=</span> <span class="pl-c1">-</span><span class="pl-c1">1</span>
+<span class="pl-s1">输出：false</span>
+<span class="pl-s1">解释：链表中没有环。</span></pre></div>
+<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/72eab35bfc070e1d34bf516b8d52e76443340f03/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f61663161336661632d613637322d346130382d626536362d3333306532383837616537322e706e67"><img src="https://camo.githubusercontent.com/72eab35bfc070e1d34bf516b8d52e76443340f03/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f61663161336661632d613637322d346130382d626536362d3333306532383837616537322e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/af1a3fac-a672-4a08-be66-330e2887ae72.png" style="max-width:100%;"></a></p>
+<h3>思路分析</h3>
+<p><code>链表成环</code>问题也是非常经典的算法问题，在面试中也经常会遇到。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/7bb47d1fea7372b8bea04d7276171595664d588e/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f61633036373265662d383338642d343739632d626666622d6561663136323064616135372e706e67"><img src="https://camo.githubusercontent.com/7bb47d1fea7372b8bea04d7276171595664d588e/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f61633036373265662d383338642d343739632d626666622d6561663136323064616135372e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/ac0672ef-838d-479c-bffb-eaf1620daa57.png" style="max-width:100%;"></a></p>
+<p>解决这种问题一般有常见的两种方法：<code>标志法</code>和<code>快慢指针法</code>。</p>
+<h4>标志法</h4>
+<p>给每个已遍历过的节点加标志位，遍历链表，当出现下一个节点已被标志时，则证明单链表有环。</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * Definition for singly-linked list.</span>
+<span class="pl-c"> * function ListNode(val) {</span>
+<span class="pl-c"> *     this.val = val;</span>
+<span class="pl-c"> *     this.next = null;</span>
+<span class="pl-c"> * }</span>
+<span class="pl-c"> */</span>
+
+<span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">ListNode</span>} head</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">boolean</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">hasCycle</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">head</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">head</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">head</span><span class="pl-kos">.</span><span class="pl-c1">flag</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">true</span>
+        <span class="pl-s1">head</span><span class="pl-kos">.</span><span class="pl-c1">flag</span> <span class="pl-c1">=</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+        <span class="pl-s1">head</span> <span class="pl-c1">=</span> <span class="pl-s1">head</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-c1">false</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h4>快慢指针（双指针法）</h4>
+<p>设置快慢两个指针，遍历单链表，快指针一次走两步，慢指针一次走一步，如果单链表中存在环，则快慢指针终会指向同一个节点，否则直到快指针指向<code>null</code>时，快慢指针都不可能相遇。</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * Definition for singly-linked list.</span>
+<span class="pl-c"> * function ListNode(val) {</span>
+<span class="pl-c"> *     this.val = val;</span>
+<span class="pl-c"> *     this.next = null;</span>
+<span class="pl-c"> * }</span>
+<span class="pl-c"> */</span>
+
+<span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">ListNode</span>} head</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">boolean</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">hasCycle</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">head</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">if</span><span class="pl-kos">(</span>!<span class="pl-s1">head</span> <span class="pl-c1">||</span> !<span class="pl-s1">head</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">return</span> <span class="pl-c1">false</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">let</span> <span class="pl-s1">slow</span> <span class="pl-c1">=</span> <span class="pl-s1">head</span><span class="pl-kos">,</span> <span class="pl-s1">fast</span> <span class="pl-c1">=</span> <span class="pl-s1">head</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">;</span>
+    <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">slow</span> !== <span class="pl-s1">fast</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span><span class="pl-kos">(</span>!<span class="pl-s1">fast</span> <span class="pl-c1">||</span> !<span class="pl-s1">fast</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+        <span class="pl-s1">fast</span> <span class="pl-c1">=</span> <span class="pl-s1">fast</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">;</span>
+        <span class="pl-s1">slow</span> <span class="pl-c1">=</span> <span class="pl-s1">slow</span><span class="pl-kos">.</span><span class="pl-c1">next</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>有效的括号 <g-emoji class="g-emoji" alias="watermelon" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f349.png">🍉</g-emoji></h2>
 <blockquote>
-<p>父页面向子页面发消息</p>
+<p>题目难度<code>easy</code>，涉及到的算法知识有栈、哈希表。</p>
 </blockquote>
-<p>父页面:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">iframe</span> <span class="pl-c1">=</span> <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">querySelector</span><span class="pl-kos">(</span><span class="pl-s">'#iframe'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">iframe</span><span class="pl-kos">.</span><span class="pl-en">onload</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-s1">iframe</span><span class="pl-kos">.</span><span class="pl-c1">contentWindow</span><span class="pl-kos">.</span><span class="pl-en">postMessage</span><span class="pl-kos">(</span><span class="pl-s">'hello'</span><span class="pl-kos">,</span> <span class="pl-s">'http://localhost:3002'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span></pre></div>
-<p>子页面:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-smi">window</span><span class="pl-kos">.</span><span class="pl-en">addEventListener</span><span class="pl-kos">(</span><span class="pl-s">'message'</span><span class="pl-kos">,</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">data</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">source</span><span class="pl-kos">.</span><span class="pl-en">postMessage</span><span class="pl-kos">(</span><span class="pl-s">'Hi'</span><span class="pl-kos">,</span> <span class="pl-s1">e</span><span class="pl-kos">.</span><span class="pl-c1">origin</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//回消息</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<ol start="6">
-<li>node 中间件</li>
-</ol>
-<p>node 中间件的跨域原理和nginx代理跨域，同源策略是浏览器的限制，服务端没有同源策略。</p>
-<p>node中间件实现跨域的原理如下:</p>
-<p>1.接受客户端请求</p>
-<p>2.将请求 转发给服务器。</p>
-<p>3.拿到服务器 响应 数据。</p>
-<p>4.将 响应 转发给客户端。</p>
-<blockquote>
-<p>不常用跨域方法</p>
-</blockquote>
-<p>以下三种跨域方式很少用，如有兴趣，可自行查阅相关资料。</p>
-<ol>
-<li>
-<p>window.name + iframe</p>
-</li>
-<li>
-<p>location.hash + iframe</p>
-</li>
-<li>
-<p>document.domain (主域需相同)</p>
-</li>
-</ol>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/21" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/21/hovercard">跨域的方法有哪些？原理是什么？</a></p>
-<hr>
-<h3>13.js异步加载的方式有哪些？</h3>
-<ol>
-<li>
-<p><code>&lt;script&gt;</code> 的 defer 属性，HTML4 中新增</p>
-</li>
-<li>
-<p><code>&lt;script&gt;</code> 的 async 属性，HTML5 中新增</p>
-</li>
-</ol>
-<p><code>&lt;script&gt;</code>标签打开defer属性，脚本就会异步加载。渲染引擎遇到这一行命令，就会开始下载外部脚本，但不会等它下载和执行，而是直接执行后面的命令。</p>
-<p>defer 和 async 的区别在于: defer要等到整个页面在内存中正常渲染结束，才会执行；</p>
-<p>async一旦下载完，渲染引擎就会中断渲染，执行这个脚本以后，再继续渲染。defer是“渲染完再执行”，async是“下载完就执行”。</p>
-<p>如果有多个 defer 脚本，会按照它们在页面出现的顺序加载。</p>
-<p>多个async脚本是不能保证加载顺序的。</p>
-<ol start="3">
-<li>动态插入 script 脚本</li>
-</ol>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-en">downloadJS</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span> 
-    <span class="pl-s1">varelement</span> <span class="pl-c1">=</span> <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-en">createElement</span><span class="pl-kos">(</span><span class="pl-s">"script"</span><span class="pl-kos">)</span><span class="pl-kos">;</span> 
-    <span class="pl-s1">element</span><span class="pl-kos">.</span><span class="pl-c1">src</span> <span class="pl-c1">=</span> <span class="pl-s">"XXX.js"</span><span class="pl-kos">;</span> 
-    <span class="pl-smi">document</span><span class="pl-kos">.</span><span class="pl-c1">body</span><span class="pl-kos">.</span><span class="pl-en">appendChild</span><span class="pl-kos">(</span><span class="pl-s1">element</span><span class="pl-kos">)</span><span class="pl-kos">;</span> 
-<span class="pl-kos">}</span>
-<span class="pl-c">//何时的时候，调用上述方法 </span></pre></div>
-<ol start="4">
-<li>有条件的动态创建脚本</li>
-</ol>
-<p>如页面 onload 之后，</p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/22" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/22/hovercard">js异步加载的方式有哪些？</a></p>
-<hr>
-<h3>14.下面代码a在什么情况中打印出1？</h3>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//?</span>
-<span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">a</span> <span class="pl-c1">==</span> <span class="pl-c1">1</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-s1">a</span> <span class="pl-c1">==</span> <span class="pl-c1">2</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-s1">a</span> <span class="pl-c1">==</span> <span class="pl-c1">3</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span></pre></div>
-<p>1.在类型转换的时候，我们知道了对象如何转换成原始数据类型。如果部署了 [Symbol.toPrimitive]，那么返回的就是<a href="">Symbol.toPrimitive</a>的返回值。当然，我们也可以把此函数部署在valueOf或者是toString接口上，效果相同。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//利用闭包延长作用域的特性</span>
-<span class="pl-k">let</span> <span class="pl-s1">a</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
-    <span class="pl-kos">[</span><span class="pl-v">Symbol</span><span class="pl-kos">.</span><span class="pl-c1">toPrimitive</span><span class="pl-kos">]</span>: <span class="pl-kos">(</span><span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-            <span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span>
-            <span class="pl-k">return</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-                <span class="pl-k">return</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">;</span>
+<h3>题目描述</h3>
+<p>给定一个只包括<code>'('</code>，<code>')'</code>，<code>'{'</code>，<code>'}'</code>，<code>'['</code>，<code>']'</code>&nbsp; 的字符串，判断字符串是否有效。</p>
+<p>有效字符串需满足：</p>
+<p>1、左括号必须用相同类型的右括号闭合。<br>
+2、左括号必须以正确的顺序闭合。</p>
+<p>注意空字符串可被认为是有效字符串。</p>
+<p>示例 1:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s">"()"</span>
+输出: <span class="pl-c1">true</span></pre></div>
+<p>示例 &nbsp;2:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s">"()[]{}"</span>
+输出: <span class="pl-c1">true</span></pre></div>
+<p>示例 &nbsp;3:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s">"(]"</span>
+输出: <span class="pl-c1">false</span></pre></div>
+<p>示例 &nbsp;4:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s">"([)]"</span>
+输出: <span class="pl-c1">false</span></pre></div>
+<p>示例 &nbsp;5:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s">"{[]}"</span>
+输出: <span class="pl-c1">true</span></pre></div>
+<h3>思路分析</h3>
+<p>这道题可以利用<code>栈</code>结构。</p>
+<p>思路大概是：遇到左括号，一律推入栈中，遇到右括号，将栈顶部元素拿出，如果不匹配则返回 <code>false</code>，如果匹配则继续循环。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/557992d9da15e98a6468f0a2abccc6f3af05b39e/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f65343132663964352d343635362d343132372d383664652d3166633034663464663162372e706e67"><img src="https://camo.githubusercontent.com/557992d9da15e98a6468f0a2abccc6f3af05b39e/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f65343132663964352d343635362d343132372d383664652d3166633034663464663162372e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/e412f9d5-4656-4127-86de-1fc04f4df1b7.png" style="max-width:100%;"></a><br>
+第一种解法是利用<code>switch case</code>。</p>
+<h4><code>switch case</code></h4>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">string</span>} s</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">boolean</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">isValid</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">s</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">arr</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">let</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">s</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">len</span>%<span class="pl-c1">2</span> !== <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+    <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">&lt;</span><span class="pl-s1">len</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-s1">letter</span> <span class="pl-c1">=</span> <span class="pl-s1">s</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+        <span class="pl-k">switch</span><span class="pl-kos">(</span><span class="pl-s1">letter</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">case</span> <span class="pl-s">'('</span>: <span class="pl-kos">{</span>
+                <span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">letter</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                <span class="pl-k">break</span><span class="pl-kos">;</span>
             <span class="pl-kos">}</span>
-    <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">(</span><span class="pl-kos">)</span>
+            <span class="pl-k">case</span> <span class="pl-s">'{'</span>: <span class="pl-kos">{</span>
+                <span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">letter</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                <span class="pl-k">break</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            <span class="pl-k">case</span> <span class="pl-s">'['</span>: <span class="pl-kos">{</span>
+                <span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">letter</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                <span class="pl-k">break</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            <span class="pl-k">case</span> <span class="pl-s">')'</span>: <span class="pl-kos">{</span>
+                <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-en">pop</span><span class="pl-kos">(</span><span class="pl-kos">)</span> !== <span class="pl-s">'('</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+                <span class="pl-k">break</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            <span class="pl-k">case</span> <span class="pl-s">'}'</span>: <span class="pl-kos">{</span>
+                <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-en">pop</span><span class="pl-kos">(</span><span class="pl-kos">)</span> !== <span class="pl-s">'{'</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+                <span class="pl-k">break</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            <span class="pl-k">case</span> <span class="pl-s">']'</span>: <span class="pl-kos">{</span>
+                <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-en">pop</span><span class="pl-kos">(</span><span class="pl-kos">)</span> !== <span class="pl-s">'['</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+                <span class="pl-k">break</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> !<span class="pl-s1">arr</span><span class="pl-kos">.</span><span class="pl-c1">length</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<p>第二种是维护一个<code>map</code>对象：</p>
+<h4>哈希表<code>map</code></h4>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">string</span>} s</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">boolean</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">isValid</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">s</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">map</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
+        <span class="pl-s">'('</span>: <span class="pl-s">')'</span><span class="pl-kos">,</span>
+        <span class="pl-s">'{'</span>: <span class="pl-s">'}'</span><span class="pl-kos">,</span>
+        <span class="pl-s">'['</span>: <span class="pl-s">']'</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">let</span> <span class="pl-s1">stack</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">let</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">s</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">len</span>%<span class="pl-c1">2</span> !== <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+    <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-k">of</span> <span class="pl-s1">s</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">i</span> <span class="pl-k">in</span> <span class="pl-s1">map</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>  <span class="pl-k">else</span> <span class="pl-kos">{</span>
+            <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">i</span> !== <span class="pl-s1">map</span><span class="pl-kos">[</span><span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-en">pop</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">false</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> !<span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-c1">length</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>滑动窗口最大值 <g-emoji class="g-emoji" alias="boat" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/26f5.png">⛵</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>hard</code>，涉及到的算法知识有双端队列。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>给定一个数组 nums，有一个大小为 &nbsp;k&nbsp; 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k&nbsp; 个数字。滑动窗口每次只向右移动一位。</p>
+<p>返回滑动窗口中的最大值。</p>
+<p>进阶：你能在线性时间复杂度内解决此题吗？</p>
+<p>示例:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s1">nums</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">-</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">5</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">6</span><span class="pl-kos">,</span><span class="pl-c1">7</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">和</span> <span class="pl-s1">k</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span>
+输出: <span class="pl-kos">[</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">5</span><span class="pl-kos">,</span><span class="pl-c1">5</span><span class="pl-kos">,</span><span class="pl-c1">6</span><span class="pl-kos">,</span><span class="pl-c1">7</span><span class="pl-kos">]</span>
+解释:
+
+  <span class="pl-s1">滑动窗口的位置</span>                <span class="pl-s1">最大值</span>
+<span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">-</span>               <span class="pl-c1">--</span><span class="pl-c1">--</span><span class="pl-c1">-</span>
+<span class="pl-kos">[</span><span class="pl-c1">1</span>  <span class="pl-c1">3</span>  <span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">-</span><span class="pl-c1">3</span>  <span class="pl-c1">5</span>  <span class="pl-c1">3</span>  <span class="pl-c1">6</span>  <span class="pl-c1">7</span>       <span class="pl-c1">3</span>
+ <span class="pl-c1">1</span> <span class="pl-kos">[</span><span class="pl-c1">3</span>  <span class="pl-c1">-</span><span class="pl-c1">1</span>  <span class="pl-c1">-</span><span class="pl-c1">3</span><span class="pl-kos">]</span> <span class="pl-c1">5</span>  <span class="pl-c1">3</span>  <span class="pl-c1">6</span>  <span class="pl-c1">7</span>       <span class="pl-c1">3</span>
+ <span class="pl-c1">1</span>  <span class="pl-c1">3</span> <span class="pl-kos">[</span><span class="pl-c1">-</span><span class="pl-c1">1</span>  <span class="pl-c1">-</span><span class="pl-c1">3</span>  <span class="pl-c1">5</span><span class="pl-kos">]</span> <span class="pl-c1">3</span>  <span class="pl-c1">6</span>  <span class="pl-c1">7</span>       <span class="pl-c1">5</span>
+ <span class="pl-c1">1</span>  <span class="pl-c1">3</span>  <span class="pl-c1">-</span><span class="pl-c1">1</span> <span class="pl-kos">[</span><span class="pl-c1">-</span><span class="pl-c1">3</span>  <span class="pl-c1">5</span>  <span class="pl-c1">3</span><span class="pl-kos">]</span> <span class="pl-c1">6</span>  <span class="pl-c1">7</span>       <span class="pl-c1">5</span>
+ <span class="pl-c1">1</span>  <span class="pl-c1">3</span>  <span class="pl-c1">-</span><span class="pl-c1">1</span>  <span class="pl-c1">-</span><span class="pl-c1">3</span> <span class="pl-kos">[</span><span class="pl-c1">5</span>  <span class="pl-c1">3</span>  <span class="pl-c1">6</span><span class="pl-kos">]</span> <span class="pl-c1">7</span>       <span class="pl-c1">6</span>
+ <span class="pl-c1">1</span>  <span class="pl-c1">3</span>  <span class="pl-c1">-</span><span class="pl-c1">1</span>  <span class="pl-c1">-</span><span class="pl-c1">3</span>  <span class="pl-c1">5</span> <span class="pl-kos">[</span><span class="pl-c1">3</span>  <span class="pl-c1">6</span>  <span class="pl-c1">7</span><span class="pl-kos">]</span>      <span class="pl-c1">7</span></pre></div>
+<p>提示：</p>
+<ul>
+<li>1 &lt;= nums.length &lt;= 10^5</li>
+<li>-10^4 &lt;= nums[i] &lt;= 10^4</li>
+<li>1 &lt;= k &lt;= nums.length</li>
+</ul>
+<h3>思路分析</h3>
+<h4>暴力求解</h4>
+<p>第一种方法，比较简单。也是大多数同学很快就能想到的方法。</p>
+<ul>
+<li>遍历数组</li>
+<li>依次遍历每个区间内的最大值，放入数组中</li>
+</ul>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} nums</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} k</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number[]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">maxSlidingWindow</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">,</span> <span class="pl-s1">k</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">nums</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">len</span> <span class="pl-c1">===</span> <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+    <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">k</span> <span class="pl-c1">===</span> <span class="pl-c1">1</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-s1">nums</span>
+    <span class="pl-k">let</span> <span class="pl-s1">resArr</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+    <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> &lt;= <span class="pl-s1">len</span> <span class="pl-c1">-</span> <span class="pl-s1">k</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-s1">max</span> <span class="pl-c1">=</span> <span class="pl-v">Number</span><span class="pl-kos">.</span><span class="pl-c1">MIN_SAFE_INTEGER</span><span class="pl-kos">;</span>
+        <span class="pl-k">for</span><span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-s1">i</span><span class="pl-kos">;</span> <span class="pl-s1">j</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">i</span> <span class="pl-c1">+</span> <span class="pl-s1">k</span><span class="pl-kos">;</span> <span class="pl-s1">j</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">max</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">max</span><span class="pl-kos">(</span><span class="pl-s1">max</span><span class="pl-kos">,</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-s1">resArr</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">max</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">resArr</span><span class="pl-kos">;</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h4>双端队列</h4>
+<p>这道题还可以用双端队列去解决，核心在于在窗口发生移动时，只根据发生变化的元素对最大值进行更新。</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/6c4ff5c63db8d0685e3fac151178c9ad73ef7228/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f61623566303039612d613666382d343038662d616138312d6138356239306539326235382e676966"><img src="https://camo.githubusercontent.com/6c4ff5c63db8d0685e3fac151178c9ad73ef7228/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f61623566303039612d613666382d343038662d616138312d6138356239306539326235382e676966" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/ab5f009a-a6f8-408f-aa81-a85b90e92b58.gif" style="max-width:100%;"></a></p>
+<p>结合上面动图(<a href="https://juejin.im/post/5cbd13d7f265da03612ee746#heading-5" rel="nofollow">图片来源</a>)我们梳理下思路：</p>
+<ul>
+<li>检查队尾元素，看是不是都满足大于等于当前元素的条件。如果是的话，直接将当前元素入队。否则，将队尾元素逐个出队、直到队尾元素大于等于当前元素为止。（这一步是为了维持队列的递减性：确保队头元素是当前滑动窗口的最大值。这样我们每次取最大值时，直接取队头元素即可。）</li>
+<li>将当前元素入队</li>
+<li>检查队头元素，看队头元素是否已经被排除在滑动窗口的范围之外了。如果是，则将队头元素出队。（这一步是维持队列的有效性：确保队列里所有的元素都在滑动窗口圈定的范围以内。）</li>
+<li>排除掉滑动窗口还没有初始化完成、第一个最大值还没有出现的特殊情况。</li>
+</ul>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} nums</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} k</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number[]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">maxSlidingWindow</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">,</span> <span class="pl-s1">k</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-c">// 缓存数组的长度</span>
+    <span class="pl-k">const</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">nums</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">const</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">const</span> <span class="pl-s1">deque</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">len</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-c">// 队尾元素小于当前元素</span>
+        <span class="pl-k">while</span> <span class="pl-kos">(</span><span class="pl-s1">deque</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">deque</span><span class="pl-kos">[</span><span class="pl-s1">deque</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">]</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">deque</span><span class="pl-kos">.</span><span class="pl-en">pop</span><span class="pl-kos">(</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-s1">deque</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-kos">)</span>
+
+        <span class="pl-c">// 当队头元素的索引已经被排除在滑动窗口之外时</span>
+        <span class="pl-k">while</span> <span class="pl-kos">(</span><span class="pl-s1">deque</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-s1">deque</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span> &lt;= <span class="pl-s1">i</span> <span class="pl-c1">-</span> <span class="pl-s1">k</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-c">// 队头元素出对</span>
+            <span class="pl-s1">deque</span><span class="pl-kos">.</span><span class="pl-en">shift</span><span class="pl-kos">(</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">i</span> &gt;= <span class="pl-s1">k</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">nums</span><span class="pl-kos">[</span><span class="pl-s1">deque</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span><span class="pl-kos">]</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>每日温度 <g-emoji class="g-emoji" alias="thermometer" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f321.png">🌡</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>medium</code>，涉及到的算法知识有栈。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>根据每日气温列表，请重新生成一个列表，对应位置的输出是需要再等待多久温度才会升高超过该日的天数。如果之后都不会升高，请在该位置用 &nbsp;0 来代替。</p>
+<p>例如，给定一个列表 &nbsp;temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 &nbsp;[1, 1, 4, 2, 1, 1, 0, 0]。</p>
+<p>提示：气温列表长度的范围是 &nbsp;[1, 30000]。每个气温的值的均为华氏度，都是在 &nbsp;[30, 100]&nbsp; 范围内的整数。</p>
+<h3>思路分析</h3>
+<p>看到这道题，大家很容易就会想到暴力遍历法：直接两层遍历，第一层定位一个温度，第二层定位离这个温度最近的一次升温是哪天，然后求出两个温度对应索引的差值即可。</p>
+<p>然而这种解法需要两层遍历，时间复杂度是<code>O(n^2)</code>，显然不是最优解法。</p>
+<p>本道题目可以采用栈去做一个优化。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/b7c8608217de5cbb6f7360f27110d4c2934de72c/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f63643565353537312d646337322d346634622d386339392d6436386539326664346137382e706e67"><img src="https://camo.githubusercontent.com/b7c8608217de5cbb6f7360f27110d4c2934de72c/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f63643565353537312d646337322d346634622d386339392d6436386539326664346137382e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/cd5e5571-dc72-4f4b-8c99-d68e92fd4a78.png" style="max-width:100%;"></a></p>
+<p>大概思路就是：维护一个递减栈。当遍历过的温度，维持的是一个单调递减的态势时，我们就对这些温度的索引下标执行入栈操作；只要出现了一个数字，它打破了这种单调递减的趋势，也就是说它比前一个温度值高，这时我们就对前后两个温度的索引下标求差，得出前一个温度距离第一次升温的目标差值。</p>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} T</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number[]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">dailyTemperatures</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-v">T</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">const</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-v">T</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">const</span> <span class="pl-s1">stack</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">const</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-kos">(</span><span class="pl-k">new</span> <span class="pl-v">Array</span><span class="pl-kos">(</span><span class="pl-s1">len</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">fill</span><span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span><span class="pl-c1">=</span><span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">len</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">while</span><span class="pl-kos">(</span><span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-v">T</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span> <span class="pl-c1">&gt;</span> <span class="pl-v">T</span><span class="pl-kos">[</span><span class="pl-s1">stack</span><span class="pl-kos">[</span><span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">const</span> <span class="pl-s1">top</span> <span class="pl-c1">=</span> <span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-en">pop</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-s1">res</span><span class="pl-kos">[</span><span class="pl-s1">top</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-s1">i</span> <span class="pl-c1">-</span> <span class="pl-s1">top</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-s1">stack</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>括号生成 <g-emoji class="g-emoji" alias="dart" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3af.png">🎯</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>medium</code>，涉及到的算法知识有递归、回溯。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>数字 n 代表生成括号的对数，请你设计一个函数，用于能够生成所有可能的并且 有效的 括号组合。</p>
+<p>示例：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：n</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span>
+<span class="pl-s1">输出：</span><span class="pl-kos">[</span>
+       <span class="pl-s">"((()))"</span><span class="pl-kos">,</span>
+       <span class="pl-s">"(()())"</span><span class="pl-kos">,</span>
+       <span class="pl-s">"(())()"</span><span class="pl-kos">,</span>
+       <span class="pl-s">"()(())"</span><span class="pl-kos">,</span>
+       <span class="pl-s">"()()()"</span>
+     <span class="pl-kos">]</span></pre></div>
+<h3>思路分析</h3>
+<p>这道题目通过递归去实现。</p>
+<p>因为左右括号需要匹配、闭合。所以对应“(”和“)”的数量都是<code>n</code>，当满足这个条件时，一次递归就结束，将对应值放入结果数组中。</p>
+<p>这里有一个潜在的限制条件：<code>有效的</code>括号组合。对应逻辑就是在往每个位置去放入“(”或“)”前：</p>
+<ul>
+<li>需要判断“(”的数量是否小于 n</li>
+<li>“)”的数量是否小于“(”<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/c87ab7eb1b5db6be8dde98e768b43b8a5e10bb03/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f30613537363934302d633564612d343764322d386232662d6563373131343830376138302e706e67"><img src="https://camo.githubusercontent.com/c87ab7eb1b5db6be8dde98e768b43b8a5e10bb03/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f30613537363934302d633564612d343764322d386232662d6563373131343830376138302e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/0a576940-c5da-47d2-8b2f-ec7114807a80.png" style="max-width:100%;"></a></li>
+</ul>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} n</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">string[]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">generateParenthesis</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">n</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+    <span class="pl-k">const</span> <span class="pl-en">generate</span> <span class="pl-c1">=</span> <span class="pl-kos">(</span><span class="pl-s1">cur</span><span class="pl-kos">,</span> <span class="pl-s1">left</span><span class="pl-kos">,</span> <span class="pl-s1">right</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">left</span> <span class="pl-c1">===</span><span class="pl-s1">n</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-s1">right</span> <span class="pl-c1">===</span> <span class="pl-s1">n</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">cur</span><span class="pl-kos">)</span>
+            <span class="pl-k">return</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">left</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">n</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-en">generate</span><span class="pl-kos">(</span><span class="pl-s1">cur</span> <span class="pl-c1">+</span> <span class="pl-s">'('</span><span class="pl-kos">,</span> <span class="pl-s1">left</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">right</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">right</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">left</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-en">generate</span><span class="pl-kos">(</span><span class="pl-s1">cur</span> <span class="pl-c1">+</span> <span class="pl-s">')'</span><span class="pl-kos">,</span> <span class="pl-s1">left</span><span class="pl-kos">,</span> <span class="pl-s1">right</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-en">generate</span><span class="pl-kos">(</span><span class="pl-s">''</span><span class="pl-kos">,</span> <span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">0</span><span class="pl-kos">)</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>电话号码的字母组合 <g-emoji class="g-emoji" alias="art" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3a8.png">🎨</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>medium</code>，涉及到的算法知识有递归、回溯。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>给定一个仅包含数字 2-9 的字符串，返回所有它能表示的字母组合。</p>
+<p>给出数字到字母的映射如下（与电话按键相同）。注意 1 不对应任何字母。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/a2c1c2dd9a429ba23085cfb81b1c8a131ef4b46d/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f32623637343137312d616463352d343432622d383563632d3831366161396630313631342e706e67"><img src="https://camo.githubusercontent.com/a2c1c2dd9a429ba23085cfb81b1c8a131ef4b46d/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f32623637343137312d616463352d343432622d383563632d3831366161396630313631342e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/2b674171-adc5-442b-85cc-816aa9f01614.png" style="max-width:100%;"></a><br>
+示例:</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">输入：</span><span class="pl-s">"23"</span>
+<span class="pl-s1">输出：</span><span class="pl-kos">[</span><span class="pl-s">"ad"</span><span class="pl-kos">,</span> <span class="pl-s">"ae"</span><span class="pl-kos">,</span> <span class="pl-s">"af"</span><span class="pl-kos">,</span> <span class="pl-s">"bd"</span><span class="pl-kos">,</span> <span class="pl-s">"be"</span><span class="pl-kos">,</span> <span class="pl-s">"bf"</span><span class="pl-kos">,</span> <span class="pl-s">"cd"</span><span class="pl-kos">,</span> <span class="pl-s">"ce"</span><span class="pl-kos">,</span> <span class="pl-s">"cf"</span><span class="pl-kos">]</span><span class="pl-kos">.</span></pre></div>
+<h3>思路分析</h3>
+<p>首先用一个对象<code>map</code>存储数字与字母的映射关系，接下来遍历对应的字符串，第一次将字符串存在结果数组<code>result</code>中，第二次及以后的就双层遍历生成新的字符串数组。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/a2e71aae1cda95782fc0fbf9e8e761431e24605f/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31363431323339622d383264642d346265642d396531362d6634306561663665343038332e706e67"><img src="https://camo.githubusercontent.com/a2e71aae1cda95782fc0fbf9e8e761431e24605f/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31363431323339622d383264642d346265642d396531362d6634306561663665343038332e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/1641239b-82dd-4bed-9e16-f40eaf6e4083.png" style="max-width:100%;"></a></p>
+<h3>代码实现</h3>
+<h4>哈希映射 逐层遍历</h4>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">string</span>} digits</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">string[]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">letterCombinations</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">digits</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">digits</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">===</span> <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+    <span class="pl-k">let</span> <span class="pl-s1">map</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
+        <span class="pl-c1">2</span>: <span class="pl-s">'abc'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">3</span>: <span class="pl-s">'def'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">4</span>: <span class="pl-s">'ghi'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">5</span>: <span class="pl-s">'jkl'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">6</span>: <span class="pl-s">'mno'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">7</span>: <span class="pl-s">'pqrs'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">8</span>: <span class="pl-s">'tuv'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">9</span>: <span class="pl-s">'wxyz'</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">num</span> <span class="pl-k">of</span> <span class="pl-s1">digits</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-s1">chars</span> <span class="pl-c1">=</span> <span class="pl-s1">map</span><span class="pl-kos">[</span><span class="pl-s1">num</span><span class="pl-kos">]</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">&gt;</span> <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">let</span> <span class="pl-s1">temp</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+            <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">char</span> <span class="pl-k">of</span> <span class="pl-s1">chars</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">oldStr</span> <span class="pl-k">of</span> <span class="pl-s1">res</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                    <span class="pl-s1">temp</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">oldStr</span> <span class="pl-c1">+</span> <span class="pl-s1">char</span><span class="pl-kos">)</span>
+                <span class="pl-kos">}</span>
+            <span class="pl-kos">}</span>
+            <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-s1">temp</span>
+        <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span>...<span class="pl-s1">chars</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h4>递归</h4>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">string</span>} digits</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">string[]</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">letterCombinations</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">digits</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
+    <span class="pl-k">if</span> <span class="pl-kos">(</span>!<span class="pl-s1">digits</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
+    <span class="pl-k">let</span> <span class="pl-s1">map</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span>
+        <span class="pl-c1">2</span>: <span class="pl-s">'abc'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">3</span>: <span class="pl-s">'def'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">4</span>: <span class="pl-s">'ghi'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">5</span>: <span class="pl-s">'jkl'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">6</span>: <span class="pl-s">'mno'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">7</span>: <span class="pl-s">'pqrs'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">8</span>: <span class="pl-s">'tuv'</span><span class="pl-kos">,</span>
+        <span class="pl-c1">9</span>: <span class="pl-s">'wxyz'</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">function</span> <span class="pl-en">generate</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-kos">,</span> <span class="pl-s1">str</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-s1">len</span> <span class="pl-c1">=</span> <span class="pl-s1">digits</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">i</span> <span class="pl-c1">===</span> <span class="pl-s1">len</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">res</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s1">str</span><span class="pl-kos">)</span>
+            <span class="pl-k">return</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">let</span> <span class="pl-s1">chars</span> <span class="pl-c1">=</span> <span class="pl-s1">map</span><span class="pl-kos">[</span><span class="pl-s1">digits</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">]</span>
+        <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">j</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">chars</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span> <span class="pl-s1">j</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-en">generate</span><span class="pl-kos">(</span><span class="pl-s1">i</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">str</span> <span class="pl-c1">+</span> <span class="pl-s1">chars</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span><span class="pl-kos">)</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-en">generate</span><span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-s">''</span><span class="pl-kos">)</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>岛屿数量 <g-emoji class="g-emoji" alias="desert_island" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3dd.png">🏝</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>medium</code>，涉及到的算法知识有 DFS（深度优先搜索）。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>给你一个由 &nbsp;'1'（陆地）和 '0'（水）组成的的二维网格，请你计算网格中岛屿的数量。</p>
+<p>岛屿总是被水包围，并且每座岛屿只能由水平方向或竖直方向上相邻的陆地连接形成。</p>
+<p>此外，你可以假设该网格的四条边均被水包围。</p>
+<p>示例 1:</p>
+<div class="highlight highlight-source-js"><pre>输入:
+<span class="pl-c1">11110</span>
+<span class="pl-c1">11010</span>
+<span class="pl-c1">11000</span>
+<span class="pl-c1">00000</span>
+输出:&nbsp;<span class="pl-c1">1</span></pre></div>
+<p>示例 &nbsp;2:</p>
+<div class="highlight highlight-source-js"><pre>输入:
+<span class="pl-c1">11000</span>
+<span class="pl-c1">11000</span>
+<span class="pl-c1">00100</span>
+<span class="pl-c1">00011</span>
+输出: <span class="pl-c1">3</span>
+解释: <span class="pl-s1">每座岛屿只能由水平和</span>/<span class="pl-s1">或竖直方向上相邻的陆地连接而成。</span></pre></div>
+<h3>思路分析</h3>
+<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/fbc05f9006bb981868f796d700b3e2cf4d59f736/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f30383262663230362d343532322d343430612d393961392d3862336634636338306631622e706e67"><img src="https://camo.githubusercontent.com/fbc05f9006bb981868f796d700b3e2cf4d59f736/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f30383262663230362d343532322d343430612d393961392d3862336634636338306631622e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/082bf206-4522-440a-99a9-8b3f4cc80f1b.png" style="max-width:100%;"></a><br>
+如上图，我们需要计算的就是图中相连（只能是水平和/或竖直方向上相邻）的绿色岛屿的数量。</p>
+<p>这道题目一个经典的做法是<code>沉岛</code>，大致思路是：采用<code>DFS</code>（深度优先搜索），遇到 1 的就将当前的 1 变为 0，并将当前坐标的上下左右都执行 dfs，并计数。</p>
+<p>终止条件是：超出二维数组的边界或者是遇到 0 ，直接返回。</p>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">character[][]</span>} grid</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">numIslands</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">const</span> <span class="pl-s1">rows</span> <span class="pl-c1">=</span> <span class="pl-s1">grid</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">rows</span> <span class="pl-c1">===</span> <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">0</span>
+    <span class="pl-k">const</span> <span class="pl-s1">cols</span> <span class="pl-c1">=</span> <span class="pl-s1">grid</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">;</span>
+    <span class="pl-k">let</span> <span class="pl-s1">res</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">rows</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">j</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">cols</span><span class="pl-kos">;</span> <span class="pl-s1">j</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span> <span class="pl-c1">===</span> <span class="pl-s">'1'</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                <span class="pl-en">helper</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">,</span> <span class="pl-s1">i</span><span class="pl-kos">,</span> <span class="pl-s1">j</span><span class="pl-kos">,</span> <span class="pl-s1">rows</span><span class="pl-kos">,</span> <span class="pl-s1">cols</span><span class="pl-kos">)</span>
+                <span class="pl-s1">res</span><span class="pl-c1">++</span>
+            <span class="pl-kos">}</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">res</span>
+<span class="pl-kos">}</span>
+ <span class="pl-k">function</span> <span class="pl-en">helper</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">,</span> <span class="pl-s1">i</span><span class="pl-kos">,</span> <span class="pl-s1">j</span><span class="pl-kos">,</span> <span class="pl-s1">rows</span><span class="pl-kos">,</span> <span class="pl-s1">cols</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-c1">0</span> <span class="pl-c1">||</span> <span class="pl-s1">j</span> <span class="pl-c1">&lt;</span> <span class="pl-c1">0</span> <span class="pl-c1">||</span> <span class="pl-s1">i</span> <span class="pl-c1">&gt;</span> <span class="pl-s1">rows</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span> <span class="pl-c1">||</span> <span class="pl-s1">j</span> <span class="pl-c1">&gt;</span> <span class="pl-s1">cols</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span> <span class="pl-c1">||</span> <span class="pl-s1">grid</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span> <span class="pl-c1">===</span> <span class="pl-s">"0"</span><span class="pl-kos">)</span>
+        <span class="pl-k">return</span><span class="pl-kos">;</span>
+
+    <span class="pl-s1">grid</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-s">"0"</span>
+
+    <span class="pl-en">helper</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">,</span> <span class="pl-s1">i</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">j</span><span class="pl-kos">,</span> <span class="pl-s1">rows</span><span class="pl-kos">,</span> <span class="pl-s1">cols</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">helper</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">,</span> <span class="pl-s1">i</span><span class="pl-kos">,</span> <span class="pl-s1">j</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">rows</span><span class="pl-kos">,</span> <span class="pl-s1">cols</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">helper</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">,</span> <span class="pl-s1">i</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">j</span><span class="pl-kos">,</span> <span class="pl-s1">rows</span><span class="pl-kos">,</span> <span class="pl-s1">cols</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">helper</span><span class="pl-kos">(</span><span class="pl-s1">grid</span><span class="pl-kos">,</span> <span class="pl-s1">i</span><span class="pl-kos">,</span> <span class="pl-s1">j</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">rows</span><span class="pl-kos">,</span> <span class="pl-s1">cols</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+
 <span class="pl-kos">}</span></pre></div>
-<p>（1）. 比较 a == 1 时，会调用 [Symbol.toPrimitive]，此时 i 是 1，相等。<br>
-（2）. 继续比较 a == 2,调用 [Symbol.toPrimitive]，此时 i 是 2，相等。<br>
-（3）. 继续比较 a == 3,调用 [Symbol.toPrimitive]，此时 i 是 3，相等。</p>
-<p>2.利用Object.definePropert在window/global上定义a属性，获取a属性时，会调用get.</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">val</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span>
-<span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">defineProperty</span><span class="pl-kos">(</span><span class="pl-smi">window</span><span class="pl-kos">,</span> <span class="pl-s">'a'</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-  <span class="pl-en">get</span>: <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-k">return</span> <span class="pl-s1">val</span><span class="pl-c1">++</span><span class="pl-kos">;</span>
-  <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>3.利用数组的特性。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> <span class="pl-s1">a</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
-<span class="pl-s1">a</span><span class="pl-kos">.</span><span class="pl-c1">join</span> <span class="pl-c1">=</span> <span class="pl-s1">a</span><span class="pl-kos">.</span><span class="pl-c1">shift</span><span class="pl-kos">;</span></pre></div>
-<p>数组的 <code>toString</code> 方法返回一个字符串，该字符串由数组中的每个元素的 toString() 返回值经调用 join() 方法连接（由逗号隔开）组成。</p>
-<p>因此，我们可以重新 join 方法。返回第一个元素，并将其删除。</p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/23" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/23/hovercard">下面代码a在什么情况中打印出1？ </a></p>
-<hr>
-<h3>15.下面这段代码的输出是什么？</h3>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-    <span class="pl-k">return</span> <span class="pl-smi">this</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-c1">prototype</span><span class="pl-kos">.</span><span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-k">var</span> <span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">4</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-k">function</span> <span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">5</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-
-<span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">new</span> <span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-c1">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">new</span> <span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-k">new</span> <span class="pl-k">new</span> <span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p>**说明：**一道经典的面试题，仅是为了帮助大家回顾一下知识点，加深理解，真实工作中，是不可能这样写代码的，否则，肯定会被打死的。</p>
-<p>1.首先预编译阶段，变量声明与函数声明提升至其对应作用域的最顶端。</p>
-<p>因此上面的代码编译后如下(函数声明的优先级先于变量声明):</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">function</span> <span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-    <span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-    <span class="pl-k">return</span> <span class="pl-smi">this</span><span class="pl-kos">;</span>
-<span class="pl-kos">}</span>
-<span class="pl-k">var</span> <span class="pl-s1">getName</span><span class="pl-kos">;</span>
-<span class="pl-k">function</span> <span class="pl-s1">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">5</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-c1">prototype</span><span class="pl-kos">.</span><span class="pl-en">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-s1">getName</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">4</span><span class="pl-kos">)</span><span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
-<p>2.<code>Foo.getName()</code>;直接调用Foo上getName方法，输出2</p>
-<p>3.<code>getName()</code>;输出4，getName被重新赋值了</p>
-<p>4.<code>Foo().getName()</code>;执行Foo()，window的getName被重新赋值，返回this;浏览器环境中，非严格模式，this 指向 window，this.getName();输出为1.</p>
-<p>如果是严格模式，this 指向 undefined，此处会抛出错误。</p>
-<p>如果是node环境中，this 指向 global，node的全局变量并不挂在global上，因为global.getName对应的是undefined，不是一个function，会抛出错误。</p>
-<p>5.<code>getName()</code>;已经抛错的自然走不动这一步了；继续浏览器非严格模式；window.getName被重新赋过值，此时再调用，输出的是1</p>
-<p>6.<code>new Foo.getName()</code>;考察<a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/Operator_Precedence" rel="nofollow">运算符优先级</a>的知识，new 无参数列表，对应的优先级是18；成员访问操作符 <code>.</code> , 对应的优先级是 19。因此相当于是 <code>new (Foo.getName)()</code>;new操作符会执行构造函数中的方法，因此此处输出为 2.</p>
-<p>7.<code>new Foo().getName()</code>；new 带参数列表，对应的优先级是19，和成员访问操作符<code>.</code>优先级相同。同级运算符，按照从左到右的顺序依次计算。<code>new Foo()</code>先初始化 Foo 的实例化对象，实例上没有getName方法，因此需要原型上去找，即找到了 <code>Foo.prototype.getName</code>，输出3</p>
-<p>8.<code>new new Foo().getName()</code>; new 带参数列表，优先级19，因此相当于是 <code>new (new Foo()).getName()</code>；先初始化 Foo 的实例化对象，然后将其原型上的 getName 函数作为构造函数再次 new ，输出3</p>
-<p>因此最终结果如下:</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//2</span>
-<span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//4</span>
-<span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//1</span>
-<span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//1</span>
-<span class="pl-k">new</span> <span class="pl-v">Foo</span><span class="pl-kos">.</span><span class="pl-c1">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//2</span>
-<span class="pl-k">new</span> <span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//3</span>
-<span class="pl-k">new</span> <span class="pl-k">new</span> <span class="pl-v">Foo</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">getName</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//3</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/24" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/24/hovercard">下面这段代码的输出是什么？</a></p>
-<hr>
-<h3>16.实现双向绑定 Proxy 与 Object.defineProperty 相比优劣如何?</h3>
-<ol>
-<li>
-<p>Object.definedProperty 的作用是劫持一个对象的属性，劫持属性的getter和setter方法，在对象的属性发生变化时进行特定的操作。而 Proxy 劫持的是整个对象。</p>
-</li>
-<li>
-<p>Proxy 会返回一个代理对象，我们只需要操作新对象即可，而 <code>Object.defineProperty</code>  只能遍历对象属性直接修改。</p>
-</li>
-<li>
-<p>Object.definedProperty 不支持数组，更准确的说是不支持数组的各种API，因为如果仅仅考虑arry[i] = value 这种情况，是可以劫持的，但是这种劫持意义不大。而 Proxy 可以支持数组的各种API。</p>
-</li>
-<li>
-<p>尽管 Object.defineProperty 有诸多缺陷，但是其兼容性要好于 Proxy.</p>
-</li>
-</ol>
-<p>PS: Vue2.x 使用 Object.defineProperty 实现数据双向绑定，V3.0 则使用了 Proxy.</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-c">//拦截器</span>
-<span class="pl-k">let</span> <span class="pl-s1">obj</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">temp</span> <span class="pl-c1">=</span> <span class="pl-s">'Yvette'</span><span class="pl-kos">;</span>
-<span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">defineProperty</span><span class="pl-kos">(</span><span class="pl-s1">obj</span><span class="pl-kos">,</span> <span class="pl-s">'name'</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-    <span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">"读取成功"</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-s1">temp</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">set</span><span class="pl-kos">(</span><span class="pl-s1">value</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">"设置成功"</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-s1">temp</span> <span class="pl-c1">=</span> <span class="pl-s1">value</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-
-<span class="pl-s1">obj</span><span class="pl-kos">.</span><span class="pl-c1">name</span> <span class="pl-c1">=</span> <span class="pl-s">'Chris'</span><span class="pl-kos">;</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s1">obj</span><span class="pl-kos">.</span><span class="pl-c1">name</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
-<p><strong>PS:</strong> Object.defineProperty 定义出来的属性，默认是不可枚举，不可更改，不可配置【无法delete】</p>
-<p>我们可以看到 Proxy 会劫持整个对象，读取对象中的属性或者是修改属性值，那么就会被劫持。但是有点需要注意，复杂数据类型，监控的是引用地址，而不是值，如果引用地址没有改变，那么不会触发set。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">obj</span> <span class="pl-c1">=</span> <span class="pl-kos">{</span><span class="pl-c1">name</span>: <span class="pl-s">'Yvette'</span><span class="pl-kos">,</span> <span class="pl-c1">hobbits</span>: <span class="pl-kos">[</span><span class="pl-s">'travel'</span><span class="pl-kos">,</span> <span class="pl-s">'reading'</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-c1">info</span>: <span class="pl-kos">{</span>
-    <span class="pl-c1">age</span>: <span class="pl-c1">20</span><span class="pl-kos">,</span>
-    <span class="pl-c1">job</span>: <span class="pl-s">'engineer'</span>
-<span class="pl-kos">}</span><span class="pl-kos">}</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">p</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Proxy</span><span class="pl-kos">(</span><span class="pl-s1">obj</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-    <span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">)</span> <span class="pl-kos">{</span> <span class="pl-c">//第三个参数是 proxy， 一般不使用</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'读取成功'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-v">Reflect</span><span class="pl-kos">.</span><span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">set</span><span class="pl-kos">(</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">,</span> <span class="pl-s1">value</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-k">if</span><span class="pl-kos">(</span><span class="pl-s1">key</span> <span class="pl-c1">===</span> <span class="pl-s">'length'</span><span class="pl-kos">)</span> <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span> <span class="pl-c">//如果是数组长度的变化，返回。</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'设置成功'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-v">Reflect</span><span class="pl-kos">.</span><span class="pl-en">set</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">,</span> <span class="pl-s1">value</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-c1">name</span> <span class="pl-c1">=</span> <span class="pl-c1">20</span><span class="pl-kos">;</span> <span class="pl-c">//设置成功</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-c1">age</span> <span class="pl-c1">=</span> <span class="pl-c1">20</span><span class="pl-kos">;</span> <span class="pl-c">//设置成功; 不需要事先定义此属性</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-c1">hobbits</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s">'photography'</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//读取成功;注意不会触发设置成功</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-c1">info</span><span class="pl-kos">.</span><span class="pl-c1">age</span> <span class="pl-c1">=</span> <span class="pl-c1">18</span><span class="pl-kos">;</span> <span class="pl-c">//读取成功;不会触发设置成功</span></pre></div>
-<p>最后，我们再看下对于数组的劫持，Object.definedProperty 和 Proxy 的差别</p>
-<p>Object.definedProperty 可以将数组的索引作为属性进行劫持，但是仅支持直接对 arry[i] 进行操作，不支持数组的API，非常鸡肋。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">arry</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-kos">]</span>
-<span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">defineProperty</span><span class="pl-kos">(</span><span class="pl-s1">arry</span><span class="pl-kos">,</span> <span class="pl-s">'0'</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-    <span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">"读取成功"</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-s1">temp</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">set</span><span class="pl-kos">(</span><span class="pl-s1">value</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">"设置成功"</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-s1">temp</span> <span class="pl-c1">=</span> <span class="pl-s1">value</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-
-<span class="pl-s1">arry</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">10</span><span class="pl-kos">;</span> <span class="pl-c">//触发设置成功</span>
-<span class="pl-s1">arry</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-c1">10</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//不能被劫持</span></pre></div>
-<p>Proxy 可以监听到数组的变化，支持各种API。注意数组的变化触发get和set可能不止一次，如有需要，自行根据key值决定是否要进行处理。</p>
-<div class="highlight highlight-source-js"><pre><span class="pl-k">let</span> <span class="pl-s1">hobbits</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-s">'travel'</span><span class="pl-kos">,</span> <span class="pl-s">'reading'</span><span class="pl-kos">]</span><span class="pl-kos">;</span>
-<span class="pl-k">let</span> <span class="pl-s1">p</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Proxy</span><span class="pl-kos">(</span><span class="pl-s1">hobbits</span><span class="pl-kos">,</span> <span class="pl-kos">{</span>
-    <span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-c">// if(key === 'length') return true; //如果是数组长度的变化，返回。</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'读取成功'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-v">Reflect</span><span class="pl-kos">.</span><span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span><span class="pl-kos">,</span>
-    <span class="pl-en">set</span><span class="pl-kos">(</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">,</span> <span class="pl-s1">value</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
-        <span class="pl-c">// if(key === 'length') return true; //如果是数组长度的变化，返回。</span>
-        <span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-s">'设置成功'</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-        <span class="pl-k">return</span> <span class="pl-v">Reflect</span><span class="pl-kos">.</span><span class="pl-en">set</span><span class="pl-kos">(</span><span class="pl-kos">[</span><span class="pl-s1">target</span><span class="pl-kos">,</span> <span class="pl-s1">key</span><span class="pl-kos">,</span> <span class="pl-s1">value</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-    <span class="pl-kos">}</span>
-<span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-en">splice</span><span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">,</span><span class="pl-c1">1</span><span class="pl-kos">)</span> <span class="pl-c">//触发get和set，可以被劫持</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-s">'photography'</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//触发get和set</span>
-<span class="pl-s1">p</span><span class="pl-kos">.</span><span class="pl-en">slice</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//触发get；因为 slice 是不会修改原数组的</span></pre></div>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/25" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/25/hovercard">实现双向绑定 Proxy 与 Object.defineProperty 相比优劣如何?</a></p>
-<hr>
-<h3>17.<code>Object.is()</code> 与比较操作符 <code>===</code>、<code>==</code> 有什么区别？</h3>
-<p>以下情况，Object.is认为是相等</p>
-<pre><code>两个值都是 undefined
-两个值都是 null
-两个值都是 true 或者都是 false
-两个值是由相同个数的字符按照相同的顺序组成的字符串
-两个值指向同一个对象
-两个值都是数字并且
-都是正零 +0
-都是负零 -0
-都是 NaN
-都是除零和 NaN 外的其它同一个数字
-</code></pre>
-<p>Object.is() 类似于 ===，但是有一些细微差别，如下：</p>
-<ol>
-<li>NaN 和 NaN 相等</li>
-<li>-0 和 +0 不相等</li>
-</ol>
-<div class="highlight highlight-source-js"><pre><span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">is</span><span class="pl-kos">(</span><span class="pl-v">NaN</span><span class="pl-kos">,</span> <span class="pl-v">NaN</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//true</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-v">NaN</span> <span class="pl-c1">===</span> <span class="pl-v">NaN</span><span class="pl-kos">)</span><span class="pl-kos">;</span><span class="pl-c">//false</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-v">Object</span><span class="pl-kos">.</span><span class="pl-en">is</span><span class="pl-kos">(</span><span class="pl-c1">-</span><span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">+</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//false</span>
-<span class="pl-smi">console</span><span class="pl-kos">.</span><span class="pl-en">log</span><span class="pl-kos">(</span><span class="pl-c1">-</span><span class="pl-c1">0</span> <span class="pl-c1">===</span> <span class="pl-c1">+</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">//true</span></pre></div>
-<p>Object.is 和 <code>==</code>差得远了， <code>==</code> 在类型不同时，需要进行类型转换，前文已经详细说明。</p>
-<p>如果你有更好的答案或想法，欢迎在这题目对应的github下留言：<a href="https://github.com/YvetteLau/Blog/issues/26" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/26/hovercard">Object.is() 与比较操作符 <code>===</code>、<code>==</code> 有什么区别?</a></p>
-<hr>
-<h3>18.什么是事件循环？Node事件循环和JS事件循环的差异是什么？</h3>
-<p>最后一道题留给大家回答，再写下去，篇幅实在太长。</p>
-<p>针对这道题，后面会专门写一篇文章~</p>
-<p><strong>留下你的答案:</strong>  <a href="https://github.com/YvetteLau/Blog/issues/27" data-hovercard-type="issue" data-hovercard-url="/YvetteLau/Blog/issues/27/hovercard">什么是事件循环？Node事件循环和JS事件循环的差异是什么？</a></p>
-<p>关于浏览器的event-loop可以看我之前的文章：<a href="https://juejin.im/post/5c947bca5188257de704121d" rel="nofollow">搞懂浏览器的EventLoop</a></p>
-<hr>
-<h4>参考文章:</h4>
-<ol>
-<li><a href="https://www.imooc.com/article/38600" rel="nofollow">https://www.imooc.com/article/38600</a></li>
-<li><a href="http://es6.ruanyifeng.com/" rel="nofollow">http://es6.ruanyifeng.com/</a></li>
-<li><a href="https://www.imooc.com/article/72500" rel="nofollow">https://www.imooc.com/article/72500</a></li>
-<li><a href="https://www.cnblogs.com/LuckyWinty/p/5796190.html" rel="nofollow">https://www.cnblogs.com/LuckyWinty/p/5796190.html</a></li>
-<li><a href="https://www.jianshu.com/p/a76dc7e0c5a1" rel="nofollow">https://www.jianshu.com/p/a76dc7e0c5a1</a></li>
-<li><a href="https://www.v2ex.com/t/351261" rel="nofollow">https://www.v2ex.com/t/351261</a></li>
-</ol>
+<h2>分发饼干 <g-emoji class="g-emoji" alias="cookie" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f36a.png">🍪</g-emoji></h2>
 <blockquote>
-<p>关注小姐姐的公众号，加入技术交流群。</p>
+<p>题目难度<code>easy</code>，涉及到的算法知识有贪心算法。</p>
 </blockquote>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/8bbf36b450f959682e01ef17e439d34cc1455dbe/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434561316462366364356331313562356663633930393362313661316337376139332f3239343437"><img src="https://camo.githubusercontent.com/8bbf36b450f959682e01ef17e439d34cc1455dbe/68747470733a2f2f6e6f74652e796f7564616f2e636f6d2f7977732f7075626c69632f7265736f757263652f66343537303163633431303530346537316462626362643838363165386430632f786d6c6e6f74652f5745425245534f5552434561316462366364356331313562356663633930393362313661316337376139332f3239343437" alt="1" data-canonical-src="https://note.youdao.com/yws/public/resource/f45701cc410504e71dbbcbd8861e8d0c/xmlnote/WEBRESOURCEa1db6cd5c115b5fcc9093b16a1c77a93/29447" style="max-width:100%;"></a></p>
+<h3>题目描述</h3>
+<p>假设你是一位很棒的家长，想要给你的孩子们一些小饼干。但是，每个孩子最多只能给一块饼干。对每个孩子 i ，都有一个胃口值 &nbsp;gi ，这是能让孩子们满足胃口的饼干的最小尺寸；并且每块饼干 j ，都有一个尺寸 sj&nbsp;。如果 sj &gt;= gi&nbsp;，我们可以将这个饼干 j 分配给孩子 i ，这个孩子会得到满足。你的目标是尽可能满足越多数量的孩子，并输出这个最大数值。</p>
+<p><b>注意：</b></p>
+<p>你可以假设胃口值为正。<br>
+一个小朋友最多只能拥有一块饼干。</p>
+<p>示例 &nbsp;1:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">1</span><span class="pl-kos">]</span>
+
+输出: <span class="pl-c1">1</span>
+
+解释:
+<span class="pl-s1">你有三个孩子和两块小饼干，3个孩子的胃口值分别是：1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-s1">。</span>
+<span class="pl-s1">虽然你有两块小饼干，由于他们的尺寸都是1，你只能让胃口值是1的孩子满足。</span>
+<span class="pl-s1">所以你应该输出1。</span></pre></div>
+<p>示例 &nbsp;2:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">]</span>
+
+输出: <span class="pl-c1">2</span>
+
+解释:
+<span class="pl-s1">你有两个孩子和三块小饼干，2个孩子的胃口值分别是1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-s1">。</span>
+<span class="pl-s1">你拥有的饼干数量和尺寸都足以让所有孩子满足。</span>
+<span class="pl-s1">所以你应该输出2</span><span class="pl-kos">.</span></pre></div>
+<h3>思路分析</h3>
+<p>这道题目是一道典型的<code>贪心算法</code>类。解题思路大概如下：</p>
+<ul>
+<li>优先满足胃口小的小朋友的需求</li>
+<li>设最大可满足的孩子数量为<code>maxNum = 0</code></li>
+<li>胃口小的拿小的，胃口大的拿大的</li>
+<li>两边升序，然后一一对比
+<ul>
+<li>当<code>饼干j</code> &gt;= <code>胃口i</code> 时，<code>i++</code>、<code>j++</code>、<code>maxNum++</code></li>
+<li>当<code>饼干j</code> &lt; <code>胃口i</code>时，说明饼干不够吃，换更大的，<code>j++</code></li>
+</ul>
+</li>
+<li>到边界后停止</li>
+</ul>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} g</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} s</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">findContentChildren</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">g</span><span class="pl-kos">,</span> <span class="pl-s1">s</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-s1">g</span> <span class="pl-c1">=</span> <span class="pl-s1">g</span><span class="pl-kos">.</span><span class="pl-en">sort</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">a</span><span class="pl-kos">,</span> <span class="pl-s1">b</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-s1">a</span> <span class="pl-c1">-</span> <span class="pl-s1">b</span><span class="pl-kos">)</span>
+    <span class="pl-s1">s</span> <span class="pl-c1">=</span> <span class="pl-s1">s</span><span class="pl-kos">.</span><span class="pl-en">sort</span><span class="pl-kos">(</span><span class="pl-kos">(</span><span class="pl-s1">a</span><span class="pl-kos">,</span> <span class="pl-s1">b</span><span class="pl-kos">)</span> <span class="pl-c1">=&gt;</span> <span class="pl-s1">a</span> <span class="pl-c1">-</span> <span class="pl-s1">b</span><span class="pl-kos">)</span>
+    <span class="pl-k">let</span> <span class="pl-s1">gLen</span> <span class="pl-c1">=</span> <span class="pl-s1">g</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">,</span>
+        <span class="pl-s1">sLen</span> <span class="pl-c1">=</span> <span class="pl-s1">s</span><span class="pl-kos">.</span><span class="pl-c1">length</span><span class="pl-kos">,</span>
+        <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">,</span>
+        <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">,</span>
+        <span class="pl-s1">maxNum</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">while</span> <span class="pl-kos">(</span><span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">gLen</span> <span class="pl-c1">&amp;&amp;</span> <span class="pl-s1">j</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">sLen</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">s</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span> &gt;= <span class="pl-s1">g</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">;</span>
+            <span class="pl-s1">maxNum</span><span class="pl-c1">++</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-s1">j</span><span class="pl-c1">++</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">maxNum</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>买卖股票的最佳时机 II <g-emoji class="g-emoji" alias="helicopter" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f681.png">🚁</g-emoji></h2>
 <blockquote>
-<h3>后续写作计划(写作顺序不定)</h3>
+<p>题目难度<code>easy</code>，涉及到的算法知识有动态规划、贪心算法。</p>
 </blockquote>
-<p>1.《寒冬求职季之你必须要懂的原生JS》(下)</p>
-<p>2.《寒冬求职季之你必须要知道的CSS》</p>
-<p>3.《寒冬求职季之你必须要懂的前端安全》</p>
-<p>4.《寒冬求职季之你必须要懂的一些浏览器知识》</p>
-<p>5.《寒冬求职季之你必须要知道的性能优化》</p>
-<p>6.《寒冬求职季之你必须要懂的webpack原理》</p>
-<p><strong>针对React技术栈:</strong></p>
-<p>1.《寒冬求职季之你必须要懂的React》系列</p>
-<p>2.《寒冬求职季之你必须要懂的ReactNative》系列</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/97caf4bcf03761926ba45cf5660af9b9e48fa4c1/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353836393832393734352664693d393664353038333338343739653236366638316434636230616161313533316526696d67747970653d30267372633d68747470253341253246253246696d672e74756b6578772e636f6d253246696d67253246373233666634623731306439646436312e6a7067"><img src="https://camo.githubusercontent.com/97caf4bcf03761926ba45cf5660af9b9e48fa4c1/68747470733a2f2f74696d6773612e62616964752e636f6d2f74696d673f696d616765267175616c6974793d38302673697a653d62393939395f3130303030267365633d313535353836393832393734352664693d393664353038333338343739653236366638316434636230616161313533316526696d67747970653d30267372633d68747470253341253246253246696d672e74756b6578772e636f6d253246696d67253246373233666634623731306439646436312e6a7067" alt="" data-canonical-src="https://timgsa.baidu.com/timg?image&amp;quality=80&amp;size=b9999_10000&amp;sec=1555869829745&amp;di=96d508338479e266f81d4cb0aaa1531e&amp;imgtype=0&amp;src=http%3A%2F%2Fimg.tukexw.com%2Fimg%2F723ff4b710d9dd61.jpg" style="max-width:100%;"></a></p>
-<p>本文的写成耗费了非常多的时间，在这个过程中，我也学习到了很多知识，谢谢各位小伙伴愿意花费宝贵的时间阅读本文，如果本文给了您一点帮助或者是启发，请不要吝啬你的赞和Star，您的肯定是我前进的最大动力。</p>
+<h3>题目描述</h3>
+<p>给定一个数组，它的第 &nbsp;i 个元素是一支给定股票第 i 天的价格。</p>
+<p>设计一个算法来计算你所能获取的最大利润。你可以尽可能地完成更多的交易（多次买卖一支股票）。</p>
+<p><b>注意：</b>你不能同时参与多笔交易（你必须在再次购买前出售掉之前的股票）。</p>
+<p>示例 1:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-kos">[</span><span class="pl-c1">7</span><span class="pl-kos">,</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">5</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">6</span><span class="pl-kos">,</span><span class="pl-c1">4</span><span class="pl-kos">]</span>
+输出: <span class="pl-c1">7</span>
+解释: <span class="pl-s1">在第</span> <span class="pl-c1">2</span> <span class="pl-s1">天（股票价格</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-s1">）的时候买入，在第</span> <span class="pl-c1">3</span> <span class="pl-s1">天（股票价格</span> <span class="pl-c1">=</span> <span class="pl-c1">5</span><span class="pl-s1">）的时候卖出</span><span class="pl-kos">,</span> <span class="pl-s1">这笔交易所能获得利润</span> <span class="pl-c1">=</span> <span class="pl-c1">5</span><span class="pl-c1">-</span><span class="pl-c1">1</span> <span class="pl-c1">=</span> <span class="pl-c1">4</span> <span class="pl-s1">。</span>
+&nbsp;    <span class="pl-s1">随后，在第</span> <span class="pl-c1">4</span> <span class="pl-s1">天（股票价格</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span><span class="pl-s1">）的时候买入，在第</span> <span class="pl-c1">5</span> <span class="pl-s1">天（股票价格</span> <span class="pl-c1">=</span> <span class="pl-c1">6</span><span class="pl-s1">）的时候卖出</span><span class="pl-kos">,</span> <span class="pl-s1">这笔交易所能获得利润</span> <span class="pl-c1">=</span> <span class="pl-c1">6</span><span class="pl-c1">-</span><span class="pl-c1">3</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span> <span class="pl-s1">。</span></pre></div>
+<p>示例 2:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span><span class="pl-c1">2</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">4</span><span class="pl-kos">,</span><span class="pl-c1">5</span><span class="pl-kos">]</span>
+输出: <span class="pl-c1">4</span>
+解释: <span class="pl-s1">在第</span> <span class="pl-c1">1</span> <span class="pl-s1">天（股票价格</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-s1">）的时候买入，在第</span> <span class="pl-c1">5</span> <span class="pl-s1">天</span> <span class="pl-s1">（股票价格</span> <span class="pl-c1">=</span> <span class="pl-c1">5</span><span class="pl-s1">）的时候卖出</span><span class="pl-kos">,</span> <span class="pl-s1">这笔交易所能获得利润</span> <span class="pl-c1">=</span> <span class="pl-c1">5</span><span class="pl-c1">-</span><span class="pl-c1">1</span> <span class="pl-c1">=</span> <span class="pl-c1">4</span> <span class="pl-s1">。</span>
+&nbsp;    <span class="pl-s1">注意你不能在第</span> <span class="pl-c1">1</span> <span class="pl-s1">天和第</span> <span class="pl-c1">2</span> <span class="pl-s1">天接连购买股票，之后再将它们卖出。</span>
+&nbsp;    <span class="pl-s1">因为这样属于同时参与了多笔交易，你必须在再次购买前出售掉之前的股票。</span></pre></div>
+<p>示例 &nbsp;3:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-kos">[</span><span class="pl-c1">7</span><span class="pl-kos">,</span><span class="pl-c1">6</span><span class="pl-kos">,</span><span class="pl-c1">4</span><span class="pl-kos">,</span><span class="pl-c1">3</span><span class="pl-kos">,</span><span class="pl-c1">1</span><span class="pl-kos">]</span>
+输出: <span class="pl-c1">0</span>
+解释: <span class="pl-s1">在这种情况下</span><span class="pl-kos">,</span> <span class="pl-s1">没有交易完成</span><span class="pl-kos">,</span> <span class="pl-s1">所以最大利润为</span> <span class="pl-c1">0</span><span class="pl-s1">。</span></pre></div>
+<p><b>提示：</b></p>
+<ul>
+<li>1 &lt;= prices.length &lt;= 3 * 10 ^ 4</li>
+<li>0 &lt;= prices[i]&nbsp;&lt;= 10 ^ 4</li>
+</ul>
+<h3>思路分析</h3>
+<p>其实这道题目思路也比较简单：</p>
+<ul>
+<li>维护一个变量<code>profit</code>用来存储利润</li>
+<li>因为可以多次买卖，那么就要后面的价格比前面的大，那么就可以进行买卖</li>
+<li>因此，只要<code>prices[i+1] &gt; prices[i]</code>，那么就去叠加<code>profit</code></li>
+<li>遍历完成得到的<code>profit</code>就是获取的最大利润<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/00b000ee17475e8203ed156a164fdfe31198edb4/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f65663532383766392d326664362d346631652d626637302d3639633663656230663465332e706e67"><img src="https://camo.githubusercontent.com/00b000ee17475e8203ed156a164fdfe31198edb4/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f65663532383766392d326664362d346631652d626637302d3639633663656230663465332e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/ef5287f9-2fd6-4f1e-bf70-69c6ceb0f4e3.png" style="max-width:100%;"></a></li>
+</ul>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} prices</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">maxProfit</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">prices</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">profit</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span><span class="pl-c1">=</span><span class="pl-c1">0</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">prices</span><span class="pl-kos">.</span><span class="pl-c1">length</span> <span class="pl-c1">-</span> <span class="pl-c1">1</span><span class="pl-kos">;</span> <span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">prices</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">&gt;</span> <span class="pl-s1">prices</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">)</span> <span class="pl-s1">profit</span> <span class="pl-c1">+=</span> <span class="pl-s1">prices</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">]</span> <span class="pl-c1">-</span> <span class="pl-s1">prices</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">profit</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>不同路径 <g-emoji class="g-emoji" alias="motorway" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f6e3.png">🛣</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>medium</code>，涉及到的算法知识有动态规划。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为“Start” ）。</p>
+<p>机器人每次只能向下或者向右移动一步。机器人试图达到网格的右下角（在下图中标记为“Finish”）。</p>
+<p>问总共有多少条不同的路径？<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/64963c8d9f1fd5fdf58daad1b42e6152ac5a7a21/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31643130333161312d303931302d343637392d613662652d3962366439363536306563642e706e67"><img src="https://camo.githubusercontent.com/64963c8d9f1fd5fdf58daad1b42e6152ac5a7a21/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f31643130333161312d303931302d343637392d613662652d3962366439363536306563642e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/1d1031a1-0910-4679-a6be-9b6d96560ecd.png" style="max-width:100%;"></a><br>
+例如，上图是一个 7 x 3 的网格。有多少可能的路径？</p>
+<p>示例 &nbsp;1:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s1">m</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span><span class="pl-kos">,</span> <span class="pl-s1">n</span> <span class="pl-c1">=</span> <span class="pl-c1">2</span>
+输出: <span class="pl-c1">3</span>
+解释:
+<span class="pl-s1">从左上角开始，总共有</span> <span class="pl-c1">3</span> <span class="pl-s1">条路径可以到达右下角。</span>
+<span class="pl-c1">1.</span> <span class="pl-s1">向右</span> <span class="pl-c1">-</span><span class="pl-c1">&gt;</span> <span class="pl-s1">向右</span> <span class="pl-c1">-</span><span class="pl-c1">&gt;</span> <span class="pl-s1">向下</span>
+<span class="pl-c1">2.</span> <span class="pl-s1">向右</span> <span class="pl-c1">-</span><span class="pl-c1">&gt;</span> <span class="pl-s1">向下</span> <span class="pl-c1">-</span><span class="pl-c1">&gt;</span> <span class="pl-s1">向右</span>
+<span class="pl-c1">3.</span> <span class="pl-s1">向下</span> <span class="pl-c1">-</span><span class="pl-c1">&gt;</span> <span class="pl-s1">向右</span> <span class="pl-c1">-</span><span class="pl-c1">&gt;</span> <span class="pl-s1">向右</span></pre></div>
+<p>示例 &nbsp;2:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s1">m</span> <span class="pl-c1">=</span> <span class="pl-c1">7</span><span class="pl-kos">,</span> <span class="pl-s1">n</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span>
+输出: <span class="pl-c1">28</span></pre></div>
+<h3>思路分析</h3>
+<p>由题可知：机器人只能向右或向下移动一步，那么从左上角到右下角的走法 = 从右边开始走的路径总数+从下边开始走的路径总数。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/a27e1593c1167bee5711ab90e546ffaf05b9f8bf/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f35343432303932662d623639662d346236382d383038312d6537343037356161346265622e706e67"><img src="https://camo.githubusercontent.com/a27e1593c1167bee5711ab90e546ffaf05b9f8bf/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f35343432303932662d623639662d346236382d383038312d6537343037356161346265622e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/5442092f-b69f-4b68-8081-e74075aa4beb.png" style="max-width:100%;"></a></p>
+<p>所以可推出动态方程为：<code>dp[i][j] = dp[i-1][j]+dp[i][j-1]</code>。</p>
+<h3>代码实现</h3>
+<blockquote>
+<p>这里采用<code>Array(m).fill(Array(n).fill(1))</code>进行了初始化，因为每一格至少有一种走法。</p>
+</blockquote>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} m</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} n</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">uniquePaths</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">m</span><span class="pl-kos">,</span> <span class="pl-s1">n</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">dp</span> <span class="pl-c1">=</span> <span class="pl-v">Array</span><span class="pl-kos">(</span><span class="pl-s1">m</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">fill</span><span class="pl-kos">(</span><span class="pl-v">Array</span><span class="pl-kos">(</span><span class="pl-s1">n</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">fill</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">)</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span> <span class="pl-s1">i</span> <span class="pl-c1">&lt;</span> <span class="pl-s1">m</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">j</span> <span class="pl-c1">=</span> <span class="pl-c1">1</span><span class="pl-kos">;</span> <span class="pl-s1">j</span><span class="pl-c1">&lt;</span> <span class="pl-s1">n</span><span class="pl-kos">;</span> <span class="pl-s1">j</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">j</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">m</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span><span class="pl-kos">[</span><span class="pl-s1">n</span><span class="pl-c1">-</span><span class="pl-c1">1</span><span class="pl-kos">]</span>
+
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>零钱兑换 <g-emoji class="g-emoji" alias="moneybag" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4b0.png">💰</g-emoji></h2>
+<blockquote>
+<p>题目难度<code>medium</code>，涉及到的算法知识有动态规划。</p>
+</blockquote>
+<h3>题目描述</h3>
+<p>给定不同面额的硬币 coins 和一个总金额 amount。编写一个函数来计算可以凑成总金额所需的最少的硬币个数。如果没有任何一种硬币组合能组成总金额，返回 &nbsp;-1。</p>
+<p>示例 &nbsp;1:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s1">coins</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">5</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">amount</span> <span class="pl-c1">=</span> <span class="pl-c1">11</span>
+输出: <span class="pl-c1">3</span>
+解释: <span class="pl-c1">11</span> <span class="pl-c1">=</span> <span class="pl-c1">5</span> <span class="pl-c1">+</span> <span class="pl-c1">5</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span></pre></div>
+<p>示例 2:</p>
+<div class="highlight highlight-source-js"><pre>输入: <span class="pl-s1">coins</span> <span class="pl-c1">=</span> <span class="pl-kos">[</span><span class="pl-c1">2</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">amount</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span>
+输出: <span class="pl-c1">-</span><span class="pl-c1">1</span></pre></div>
+<p><b>说明:</b><br>
+你可以认为每种硬币的数量是无限的。</p>
+<h3>思路分析</h3>
+<p>这道题目我们同样采用<code>动态规划</code>来解决。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/3904be1973cc1849188de7115365a1d9df8d6a85/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f63656363383030392d366563352d343763312d616161372d3439633636336531343835382e706e67"><img src="https://camo.githubusercontent.com/3904be1973cc1849188de7115365a1d9df8d6a85/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f63656363383030392d366563352d343763312d616161372d3439633636336531343835382e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/cecc8009-6ec5-47c1-aaa7-49c663e14858.png" style="max-width:100%;"></a></p>
+<p>假设给出的不同面额的硬币是[1, 2, 5]，目标是 60，问最少需要的硬币个数？</p>
+<p>我们需要先分解子问题，分层级找最优子结构。</p>
+<blockquote>
+<p><code>dp[i]</code>: 表示总金额为 <code>i</code> 的时候最优解法的硬币数</p>
+</blockquote>
+<p>我们想一下：求总金额 60 有几种方法？一共有 3 种方式，因为我们有 3 种不同面值的硬币。</p>
+<ul>
+<li>拿一枚面值为 1 的硬币 + 总金额为 59 的最优解法的硬币数量。即：dp[59] + 1</li>
+<li>拿一枚面值为 2 的硬币 + 总金额为 58 的最优解法的硬币数。即：dp[58] + 1</li>
+<li>拿一枚面值为 5 的硬币 + 总金额为 55 的最优解法的硬币数。即：dp[55] + 1</li>
+</ul>
+<p>所以，总金额为 60 的最优解法就是上面这三种解法中最优的一种，也就是硬币数最少的一种，我们下面用代码来表示一下：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-c1">60</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">min</span><span class="pl-kos">(</span><span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-c1">59</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-c1">58</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-c1">55</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span></pre></div>
+<p>推导出<code>状态转移方程</code>：</p>
+<div class="highlight highlight-source-js"><pre><span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">min</span><span class="pl-kos">(</span><span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span> <span class="pl-c1">-</span> <span class="pl-s1">coin</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span> <span class="pl-c1">-</span> <span class="pl-s1">coin</span><span class="pl-kos">]</span> <span class="pl-c1">+</span> <span class="pl-c1">1</span><span class="pl-kos">,</span> ...<span class="pl-kos">)</span></pre></div>
+<blockquote>
+<p>其中 <code>coin</code> 有多少种可能，我们就需要比较多少次，遍历 <code>coins</code> 数组，分别去对比即可</p>
+</blockquote>
+<h3>代码实现</h3>
+<div class="highlight highlight-source-js"><pre><span class="pl-c">/**</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number[]</span>} coins</span>
+<span class="pl-c"> * <span class="pl-k">@param</span> {<span class="pl-smi">number</span>} amount</span>
+<span class="pl-c"> * <span class="pl-k">@return</span> {<span class="pl-smi">number</span>}</span>
+<span class="pl-c"> */</span>
+<span class="pl-k">var</span> <span class="pl-en">coinChange</span> <span class="pl-c1">=</span> <span class="pl-k">function</span><span class="pl-kos">(</span><span class="pl-s1">coins</span><span class="pl-kos">,</span> <span class="pl-s1">amount</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-s1">dp</span> <span class="pl-c1">=</span> <span class="pl-k">new</span> <span class="pl-v">Array</span><span class="pl-kos">(</span><span class="pl-s1">amount</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">fill</span><span class="pl-kos">(</span><span class="pl-v">Infinity</span><span class="pl-kos">)</span>
+    <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-c1">0</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-c1">0</span><span class="pl-kos">;</span>
+    <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">i</span><span class="pl-c1">=</span><span class="pl-c1">0</span><span class="pl-kos">;</span><span class="pl-s1">i</span>&lt;= <span class="pl-s1">amount</span><span class="pl-kos">;</span><span class="pl-s1">i</span><span class="pl-c1">++</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">for</span> <span class="pl-kos">(</span><span class="pl-k">let</span> <span class="pl-s1">coin</span> <span class="pl-k">of</span> <span class="pl-s1">coins</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-kos">(</span><span class="pl-s1">i</span> <span class="pl-c1">-</span> <span class="pl-s1">coin</span> &gt;= <span class="pl-c1">0</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span> <span class="pl-c1">=</span> <span class="pl-v">Math</span><span class="pl-kos">.</span><span class="pl-en">min</span><span class="pl-kos">(</span><span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-kos">]</span><span class="pl-kos">,</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">i</span><span class="pl-c1">-</span><span class="pl-s1">coin</span><span class="pl-kos">]</span><span class="pl-c1">+</span><span class="pl-c1">1</span><span class="pl-kos">)</span>
+            <span class="pl-kos">}</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+    <span class="pl-k">return</span> <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">amount</span><span class="pl-kos">]</span> <span class="pl-c1">===</span> <span class="pl-v">Infinity</span> ? <span class="pl-c1">-</span><span class="pl-c1">1</span> : <span class="pl-s1">dp</span><span class="pl-kos">[</span><span class="pl-s1">amount</span><span class="pl-kos">]</span>
+<span class="pl-kos">}</span><span class="pl-kos">;</span></pre></div>
+<h2>福利</h2>
+<p>大多数前端同学对于算法的系统学习，其实是比较茫然的，这里我整理了一张思维导图，算是比较全面的概括了前端算法体系。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/97bc7b749ad8f3f7dcf5cd27b3d67ecb4d80ead6/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f63386162663536332d306333652d343130372d623033332d6165346466346538623562352e706e67"><img src="https://camo.githubusercontent.com/97bc7b749ad8f3f7dcf5cd27b3d67ecb4d80ead6/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f63386162663536332d306333652d343130372d623033332d6165346466346538623562352e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/c8abf563-0c3e-4107-b033-ae4df4e8b5b5.png" style="max-width:100%;"></a></p>
+<p>另外我还维护了一个<code>github</code>仓库：<code>https://github.com/Jack-cool/js_algorithm</code>，里面包含了大量的<code>leetcode</code>题解，并且还在不断更新中，感觉不错的给个<code>star</code>哈！<g-emoji class="g-emoji" alias="hugs" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f917.png">🤗</g-emoji><br>
+<a target="_blank" rel="noopener noreferrer" href="https://camo.githubusercontent.com/74e3a363ab6b7aeca7e8897d79acb12acd3fead7/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f32386630346231302d323336312d343030322d393264622d3063373732336531616331662e706e67"><img src="https://camo.githubusercontent.com/74e3a363ab6b7aeca7e8897d79acb12acd3fead7/68747470733a2f2f696d676b722e636e2d626a2e7566696c656f732e636f6d2f32386630346231302d323336312d343030322d393264622d3063373732336531616331662e706e67" alt="" data-canonical-src="https://imgkr.cn-bj.ufileos.com/28f04b10-2361-4002-92db-0c7723e1ac1f.png" style="max-width:100%;"></a></p>
       </td>
+    </tr>
+  </tbody>
+</table>
