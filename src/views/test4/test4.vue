@@ -1,8 +1,14 @@
 <template>
-    <div class="test4">
+    <div class="test4" ref="root">
         <div class="item" :style="{top: position[index] + 'px'}" v-for="(item, index) in list" :key="index">{{item}}</div>
 
         <img :src="imgSrc" alt="">
+
+        <p>{{list2[0][0]}}</p>
+        <p>{{list2[1]}}</p>
+        <p>{{list2[2]}}</p>
+        <p>{{list2[3].a}}</p>
+        <button @click="change">change</button>
     </div>
 </template>
 
@@ -13,7 +19,8 @@ export default {
         return {
             list: [],
             position: [],
-            imgSrc: ""
+            imgSrc: "",
+            list2: [111, 222, 333, {a: "aaaa"}]
         }
     },
     created() {
@@ -40,6 +47,21 @@ export default {
             this.imgSrc = "https://m.elongstatic.com/god-pen/static/withdraw-center/bg-banner.png"
         }
         img.src = "https://m.elongstatic.com/god-pen/static/withdraw-center/bg-banner.png"
+
+        this.list2[0] = [22, 33, 44]
+        console.log(this.list2)
+    },
+    mounted() {
+        console.log(this.$refs.root)
+        console.log(this)
+    },
+    methods: {
+        change() {
+            this.list2[0][0] = new Date()
+            this.list2[3].a = new Date()
+
+            console.log(this.list.__ob__.dep.subs[0] === this.list2.__ob__.dep.subs[0])
+        }
     }
 }
 </script>
