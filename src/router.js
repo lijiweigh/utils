@@ -4,6 +4,12 @@ import Home from "./views/Home.vue";
 
 Vue.use(Router);
 
+let r = require.context('./views', true, /\.vue$/)
+console.log(r.resolve(r.keys()[0]))
+console.log(r.keys())
+console.log(r.id)
+console.log(r(r.keys()[0]).default)
+
 export default new Router({
   mode: "history",
   base: process.env.BASE_URL,
