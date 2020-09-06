@@ -1,501 +1,736 @@
-<div data-v-06722024="" class="article-content" itemprop="articleBody"><div><h2 id="user-content--" data-id="heading-0">写在前面</h2>
-<p>因为对Vue.js很感兴趣，而且平时工作的技术栈也是Vue.js，这几个月花了些时间研究学习了一下Vue.js源码，并做了总结与输出。<br>文章的原地址：<a href="https://github.com/answershuto/learnVue" target="_blank" rel="nofollow noopener noreferrer">github.com/answershuto…</a>。<br>在学习过程中，为Vue加上了中文的注释<a href="https://github.com/answershuto/learnVue/tree/master/vue-src" target="_blank" rel="nofollow noopener noreferrer">github.com/answershuto…</a>，希望可以对其他想学习Vue源码的小伙伴有所帮助。<br>可能会有理解存在偏差的地方，欢迎提issue指出，共同学习，共同进步。</p>
-<h2 id="user-content-vnode" data-id="heading-1">VNode</h2>
-<p>在刀耕火种的年代，我们需要在各个事件方法中直接操作DOM来达到修改视图的目的。但是当应用一大就会变得难以维护。</p>
-<p>那我们是不是可以把真实DOM树抽象成一棵以JavaScript对象构成的抽象树，在修改抽象树数据后将抽象树转化成真实DOM重绘到页面上呢？于是虚拟DOM出现了，它是真实DOM的一层抽象，用属性描述真实DOM的各个特性。当它发生变化的时候，就会去修改视图。</p>
-<p>但是这样的JavaScript操作DOM进行重绘整个视图层是相当消耗性能的，我们是不是可以每次只更新它的修改呢？所以Vue.js将DOM抽象成一个以JavaScript对象为节点的虚拟DOM树，以VNode节点模拟真实DOM，可以对这颗抽象树进行创建节点、删除节点以及修改节点等操作，在这过程中都不需要操作真实DOM，只需要操作JavaScript对象，大大提升了性能。修改以后经过diff算法得出一些需要修改的最小单位，再将这些小单位的视图进行更新。这样做减少了很多不需要的DOM操作，大大提高了性能。</p>
-<p>Vue就使用了这样的抽象节点VNode，它是对真实Dom的一层抽象，而不依赖某个平台，它可以是浏览器平台，也可以是weex，甚至是node平台也可以对这样一棵抽象Dom树进行创建删除修改等操作，这也为前后端同构提供了可能。</p>
-<p>具体VNode的细节可以看<a href="https://github.com/answershuto/learnVue/blob/master/docs/VNode%E8%8A%82%E7%82%B9.MarkDown" target="_blank" rel="nofollow noopener noreferrer">VNode节点</a>。</p>
-<h2 id="user-content--" data-id="heading-2">修改视图</h2>
-<p>周所周知，Vue通过数据绑定来修改视图，当某个数据被修改的时候，set方法会让闭包中的Dep调用notify通知所有订阅者Watcher，Watcher通过get方法执行vm._update(vm._render(), hydrating)。</p>
-<p>这里看一下_update方法</p>
-<pre><code class="hljs JavaScript copyable">Vue.prototype._update = <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">vnode: VNode, hydrating?: boolean</span>) </span>{
-    <span class="hljs-keyword">const</span> vm: Component = <span class="hljs-keyword">this</span>
-    <span class="hljs-comment">/*如果已经该组件已经挂载过了则代表进入这个步骤是个更新的过程，触发beforeUpdate钩子*/</span>
-    <span class="hljs-keyword">if</span> (vm._isMounted) {
-      callHook(vm, <span class="hljs-string">'beforeUpdate'</span>)
-    }
-    <span class="hljs-keyword">const</span> prevEl = vm.$el
-    <span class="hljs-keyword">const</span> prevVnode = vm._vnode
-    <span class="hljs-keyword">const</span> prevActiveInstance = activeInstance
-    activeInstance = vm
-    vm._vnode = vnode
-    <span class="hljs-comment">// Vue.prototype.__patch__ is injected in entry points</span>
-    <span class="hljs-comment">// based on the rendering backend used.</span>
-    <span class="hljs-comment">/*基于后端渲染Vue.prototype.__patch__被用来作为一个入口*/</span>
-    <span class="hljs-keyword">if</span> (!prevVnode) {
-      <span class="hljs-comment">// initial render</span>
-      vm.$el = vm.__patch__(
-        vm.$el, vnode, hydrating, <span class="hljs-literal">false</span> <span class="hljs-comment">/* removeOnly */</span>,
-        vm.$options._parentElm,
-        vm.$options._refElm
-      )
-    } <span class="hljs-keyword">else</span> {
-      <span class="hljs-comment">// updates</span>
-      vm.$el = vm.__patch__(prevVnode, vnode)
-    }
-    activeInstance = prevActiveInstance
-    <span class="hljs-comment">// update __vue__ reference</span>
-    <span class="hljs-comment">/*更新新的实例对象的__vue__*/</span>
-    <span class="hljs-keyword">if</span> (prevEl) {
-      prevEl.__vue__ = <span class="hljs-literal">null</span>
-    }
-    <span class="hljs-keyword">if</span> (vm.$el) {
-      vm.$el.__vue__ = vm
-    }
-    <span class="hljs-comment">// if parent is an HOC, update its $el as well</span>
-    <span class="hljs-keyword">if</span> (vm.$vnode &amp;&amp; vm.$parent &amp;&amp; vm.$vnode === vm.$parent._vnode) {
-      vm.$parent.$el = vm.$el
-    }
-    <span class="hljs-comment">// updated hook is called by the scheduler to ensure that children are</span>
-    <span class="hljs-comment">// updated in a parent's updated hook.</span>
-  }</code></pre><p>_update方法的第一个参数是一个VNode对象，在内部会将该VNode对象与之前旧的VNode对象进行<strong>patch</strong>。</p>
-<p>什么是<strong>patch</strong>呢？</p>
-<h2 id="user-content-__patch__" data-id="heading-3"><strong>patch</strong></h2>
-<p>patch将新老VNode节点进行比对，然后将根据两者的比较结果进行最小单位地修改视图，而不是将整个视图根据新的VNode重绘。patch的核心在于diff算法，这套算法可以高效地比较viturl dom的变更，得出变化以修改视图。</p>
-<p>那么patch如何工作的呢？</p>
-<p>首先说一下patch的核心diff算法，diff算法是通过同层的树节点进行比较而非对树进行逐层搜索遍历的方式，所以时间复杂度只有O(n)，是一种相当高效的算法。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/599392157760360fa2c45895fe3438e9?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/599392157760360fa2c45895fe3438e9?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p></p><figure><img alt="img" class="lazyload inited" data-src="https://user-gold-cdn.xitu.io/2017/9/18/ebc9bc6e6792591c8a716c9ed876f87d?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/ebc9bc6e6792591c8a716c9ed876f87d?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>着两张图代表旧的VNode与新VNode进行patch的过程，他们只是在同层级的VNode之间进行比较得到变化（第二张图中相同颜色的方块代表互相进行比较的VNode节点），然后修改变化的视图，所以十分高效。</p>
-<p>让我们看一下patch的代码。</p>
-<pre><code class="hljs JavaScript copyable">  <span class="hljs-comment">/*createPatchFunction的返回值，一个patch函数*/</span>
-  <span class="hljs-keyword">return</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">patch</span> (<span class="hljs-params">oldVnode, vnode, hydrating, removeOnly, parentElm, refElm</span>) </span>{
-    <span class="hljs-comment">/*vnode不存在则直接调用销毁钩子*/</span>
-    <span class="hljs-keyword">if</span> (isUndef(vnode)) {
-      <span class="hljs-keyword">if</span> (isDef(oldVnode)) invokeDestroyHook(oldVnode)
-      <span class="hljs-keyword">return</span>
-    }
+<article class="article fmt article-content" data-id="1190000022205291" data-license="">
+                                                    
+<p>性能优化是把双刃剑，有好的一面也有坏的一面。好的一面就是能提升网站性能，坏的一面就是配置麻烦，或者要遵守的规则太多。并且某些性能优化规则并不适用所有场景，需要谨慎使用，请读者带着批判性的眼光来阅读本文。</p>
+<p>本文相关的优化建议的引用资料出处均会在建议后面给出，或者放在文末。</p>
+<h3 id="item-0-1">1. 减少 HTTP 请求</h3>
+<p>一个完整的 HTTP 请求需要经历 DNS 查找，TCP 握手，浏览器发出 HTTP 请求，服务器接收请求，服务器处理请求并发回响应，浏览器接收响应等过程。接下来看一个具体的例子帮助理解 HTTP ：</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099073" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>这是一个 HTTP 请求，请求的文件大小为 28.4KB。</p>
+<p>名词解释：</p>
+<ul>
+<li>Queueing: 在请求队列中的时间。</li>
+<li>Stalled: 从TCP 连接建立完成，到真正可以传输数据之间的时间差，此时间包括代理协商时间。</li>
+<li>Proxy negotiation: 与代理服务器连接进行协商所花费的时间。</li>
+<li>DNS Lookup: 执行DNS查找所花费的时间，页面上的每个不同的域都需要进行DNS查找。</li>
+<li>Initial Connection / Connecting: 建立连接所花费的时间，包括TCP握手/重试和协商SSL。</li>
+<li>SSL: 完成SSL握手所花费的时间。</li>
+<li>Request sent: 发出网络请求所花费的时间，通常为一毫秒的时间。</li>
+<li>Waiting(TFFB): TFFB 是发出页面请求到接收到应答数据第一个字节的时间总和，它包含了 DNS 解析时间、 TCP 连接时间、发送 HTTP 请求时间和获得响应消息第一个字节的时间。</li>
+<li>Content Download: 接收响应数据所花费的时间。</li>
+</ul>
+<p>从这个例子可以看出，真正下载数据的时间占比为 <code>13.05 / 204.16 = 6.39%</code>，文件越小，这个比例越小，文件越大，比例就越高。这就是为什么要建议将多个小文件合并为一个大文件，从而减少 HTTP 请求次数的原因。</p>
+<p>参考资料：</p>
+<ul><li><a href="https://developers.google.com/web/tools/chrome-devtools/network/understanding-resource-timing" rel="nofollow noreferrer" target="_blank">understanding-resource-timing</a></li></ul>
+<h3 id="item-0-2">2. 使用 HTTP2</h3>
+<p>HTTP2 相比 HTTP1.1 有如下几个优点：</p>
+<h4>解析速度快</h4>
+<p>服务器解析 HTTP1.1 的请求时，必须不断地读入字节，直到遇到分隔符 CRLF 为止。而解析 HTTP2 的请求就不用这么麻烦，因为 HTTP2 是基于帧的协议，每个帧都有表示帧长度的字段。</p>
+<h4>多路复用</h4>
+<p>HTTP1.1 如果要同时发起多个请求，就得建立多个 TCP 连接，因为一个 TCP 连接同时只能处理一个 HTTP1.1 的请求。</p>
+<p>在 HTTP2 上，多个请求可以共用一个 TCP 连接，这称为多路复用。同一个请求和响应用一个流来表示，并有唯一的流 ID 来标识。<br>多个请求和响应在 TCP 连接中可以乱序发送，到达目的地后再通过流 ID 重新组建。</p>
+<h4>首部压缩</h4>
+<p>HTTP2 提供了首部压缩功能。</p>
+<p>例如有如下两个请求：</p>
+<pre class="hljs yaml"><code><span class="hljs-string">:authority:</span> <span class="hljs-string">unpkg.zhimg.com</span>
+<span class="hljs-string">:method:</span> <span class="hljs-string">GET</span>
+<span class="hljs-string">:path:</span> <span class="hljs-string">/za-js-sdk@2.16.0/dist/zap.js</span>
+<span class="hljs-string">:scheme:</span> <span class="hljs-string">https</span>
+<span class="hljs-attr">accept:</span> <span class="hljs-string">*/*</span>
+<span class="hljs-attr">accept-encoding:</span> <span class="hljs-string">gzip,</span> <span class="hljs-string">deflate,</span> <span class="hljs-string">br</span>
+<span class="hljs-attr">accept-language:</span> <span class="hljs-string">zh-CN,zh;q=0.9</span>
+<span class="hljs-attr">cache-control:</span> <span class="hljs-literal">no</span><span class="hljs-string">-cache</span>
+<span class="hljs-attr">pragma:</span> <span class="hljs-literal">no</span><span class="hljs-string">-cache</span>
+<span class="hljs-attr">referer:</span> <span class="hljs-string">https://www.zhihu.com/</span>
+<span class="hljs-attr">sec-fetch-dest:</span> <span class="hljs-string">script</span>
+<span class="hljs-attr">sec-fetch-mode:</span> <span class="hljs-literal">no</span><span class="hljs-string">-cors</span>
+<span class="hljs-attr">sec-fetch-site:</span> <span class="hljs-string">cross-site</span>
+<span class="hljs-attr">user-agent:</span> <span class="hljs-string">Mozilla/5.0</span> <span class="hljs-string">(Windows</span> <span class="hljs-string">NT</span> <span class="hljs-number">6.1</span><span class="hljs-string">;</span> <span class="hljs-string">Win64;</span> <span class="hljs-string">x64)</span> <span class="hljs-string">AppleWebKit/537.36</span> <span class="hljs-string">(KHTML,</span> <span class="hljs-string">like</span> <span class="hljs-string">Gecko)</span> <span class="hljs-string">Chrome/80.0.3987.122</span> <span class="hljs-string">Safari/537.36</span></code></pre>
+<pre class="hljs yaml"><code><span class="hljs-string">:authority:</span> <span class="hljs-string">zz.bdstatic.com</span>
+<span class="hljs-string">:method:</span> <span class="hljs-string">GET</span>
+<span class="hljs-string">:path:</span> <span class="hljs-string">/linksubmit/push.js</span>
+<span class="hljs-string">:scheme:</span> <span class="hljs-string">https</span>
+<span class="hljs-attr">accept:</span> <span class="hljs-string">*/*</span>
+<span class="hljs-attr">accept-encoding:</span> <span class="hljs-string">gzip,</span> <span class="hljs-string">deflate,</span> <span class="hljs-string">br</span>
+<span class="hljs-attr">accept-language:</span> <span class="hljs-string">zh-CN,zh;q=0.9</span>
+<span class="hljs-attr">cache-control:</span> <span class="hljs-literal">no</span><span class="hljs-string">-cache</span>
+<span class="hljs-attr">pragma:</span> <span class="hljs-literal">no</span><span class="hljs-string">-cache</span>
+<span class="hljs-attr">referer:</span> <span class="hljs-string">https://www.zhihu.com/</span>
+<span class="hljs-attr">sec-fetch-dest:</span> <span class="hljs-string">script</span>
+<span class="hljs-attr">sec-fetch-mode:</span> <span class="hljs-literal">no</span><span class="hljs-string">-cors</span>
+<span class="hljs-attr">sec-fetch-site:</span> <span class="hljs-string">cross-site</span>
+<span class="hljs-attr">user-agent:</span> <span class="hljs-string">Mozilla/5.0</span> <span class="hljs-string">(Windows</span> <span class="hljs-string">NT</span> <span class="hljs-number">6.1</span><span class="hljs-string">;</span> <span class="hljs-string">Win64;</span> <span class="hljs-string">x64)</span> <span class="hljs-string">AppleWebKit/537.36</span> <span class="hljs-string">(KHTML,</span> <span class="hljs-string">like</span> <span class="hljs-string">Gecko)</span> <span class="hljs-string">Chrome/80.0.3987.122</span> <span class="hljs-string">Safari/537.36</span></code></pre>
+<p>从上面两个请求可以看出来，有很多数据都是重复的。如果可以把相同的首部存储起来，仅发送它们之间不同的部分，就可以节省不少的流量，加快请求的时间。</p>
+<p>HTTP/2 在客户端和服务器端使用“首部表”来跟踪和存储之前发送的键－值对，对于相同的数据，不再通过每次请求和响应发送。</p>
+<p>下面再来看一个简化的例子，假设客户端按顺序发送如下请求首部：</p>
+<pre class="hljs less"><code><span class="hljs-attribute">Header1</span>:foo
+<span class="hljs-attribute">Header2</span>:bar
+<span class="hljs-attribute">Header3</span>:bat</code></pre>
+<p>当客户端发送请求时，它会根据首部值创建一张表：</p>
+<table>
+<thead><tr>
+<th>索引</th>
+<th>首部名称</th>
+<th>值</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>62</td>
+<td>Header1</td>
+<td>foo</td>
+</tr>
+<tr>
+<td>63</td>
+<td>Header2</td>
+<td>bar</td>
+</tr>
+<tr>
+<td>64</td>
+<td>Header3</td>
+<td>bat</td>
+</tr>
+</tbody>
+</table>
+<p>如果服务器收到了请求，它会照样创建一张表。<br>当客户端发送下一个请求的时候，如果首部相同，它可以直接发送这样的首部块：</p>
+<pre class="hljs yaml"><code style="word-break: break-word; white-space: initial;"><span class="hljs-number">62</span> <span class="hljs-number">63</span> <span class="hljs-number">64</span></code></pre>
+<p>服务器会查找先前建立的表格，并把这些数字还原成索引对应的完整首部。</p>
+<h4>优先级</h4>
+<p>HTTP2 可以对比较紧急的请求设置一个较高的优先级，服务器在收到这样的请求后，可以优先处理。</p>
+<h4>流量控制</h4>
+<p>由于一个 TCP 连接流量带宽（根据客户端到服务器的网络带宽而定）是固定的，当有多个请求并发时，一个请求占的流量多，另一个请求占的流量就会少。流量控制可以对不同的流的流量进行精确控制。</p>
+<h4>服务器推送</h4>
+<p>HTTP2 新增的一个强大的新功能，就是服务器可以对一个客户端请求发送多个响应。换句话说，除了对最初请求的响应外，服务器还可以额外向客户端推送资源，而无需客户端明确地请求。</p>
+<p>例如当浏览器请求一个网站时，除了返回 HTML 页面外，服务器还可以根据 HTML 页面中的资源的 URL，来提前推送资源。</p>
+<p>现在有很多网站已经开始使用 HTTP2 了，例如知乎：</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099072" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>其中 h2 是指 HTTP2 协议，http/1.1 则是指 HTTP1.1 协议。</p>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://developers.google.com/web/fundamentals/performance/http2/?hl=zh-cn" rel="nofollow noreferrer" target="_blank">HTTP2 简介</a></li>
+<li><a href="https://github.com/woai3c/Front-end-articles/blob/master/http-https-http2.md" rel="nofollow noreferrer" target="_blank">半小时搞懂 HTTP、HTTPS和HTTP2</a></li>
+</ul>
+<h3 id="item-0-3">3. 使用服务端渲染</h3>
+<p>客户端渲染: 获取 HTML 文件，根据需要下载 JavaScript 文件，运行文件，生成 DOM，再渲染。</p>
+<p>服务端渲染：服务端返回 HTML 文件，客户端只需解析 HTML。</p>
+<ul>
+<li>优点：首屏渲染快，SEO 好。</li>
+<li>缺点：配置麻烦，增加了服务器的计算压力。</li>
+</ul>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://github.com/woai3c/vue-ssr-demo" rel="nofollow noreferrer" target="_blank">vue-ssr-demo</a></li>
+<li><a href="https://ssr.vuejs.org/zh/" rel="nofollow noreferrer" target="_blank">Vue.js 服务器端渲染指南</a></li>
+</ul>
+<h3 id="item-0-4">4. 静态资源使用 CDN</h3>
+<p>内容分发网络（CDN）是一组分布在多个不同地理位置的 Web 服务器。我们都知道，当服务器离用户越远时，延迟越高。CDN 就是为了解决这一问题，在多个位置部署服务器，让用户离服务器更近，从而缩短请求时间。</p>
+<h4>CDN 原理</h4>
+<p>当用户访问一个网站时，如果没有 CDN，过程是这样的：</p>
+<ol>
+<li>浏览器要将域名解析为 IP 地址，所以需要向本地 DNS 发出请求。</li>
+<li>本地 DNS 依次向根服务器、顶级域名服务器、权限服务器发出请求，得到网站服务器的 IP 地址。</li>
+<li>本地 DNS 将 IP 地址发回给浏览器，浏览器向网站服务器 IP 地址发出请求并得到资源。</li>
+</ol>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099074" alt="" title=""></span></p>
+<p>如果用户访问的网站部署了 CDN，过程是这样的：</p>
+<ol>
+<li>浏览器要将域名解析为 IP 地址，所以需要向本地 DNS 发出请求。</li>
+<li>本地 DNS 依次向根服务器、顶级域名服务器、权限服务器发出请求，得到全局负载均衡系统（GSLB）的 IP 地址。</li>
+<li>本地 DNS 再向 GSLB 发出请求，GSLB 的主要功能是根据本地 DNS 的 IP 地址判断用户的位置，筛选出距离用户较近的本地负载均衡系统（SLB），并将该 SLB 的 IP 地址作为结果返回给本地 DNS。</li>
+<li>本地 DNS 将 SLB 的 IP 地址发回给浏览器，浏览器向 SLB 发出请求。</li>
+<li>SLB 根据浏览器请求的资源和地址，选出最优的缓存服务器发回给浏览器。</li>
+<li>浏览器再根据 SLB 发回的地址重定向到缓存服务器。</li>
+<li>如果缓存服务器有浏览器需要的资源，就将资源发回给浏览器。如果没有，就向源服务器请求资源，再发给浏览器并缓存在本地。</li>
+</ol>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099075" alt="" title=""></span></p>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://www.zhihu.com/question/36514327/answer/193768864" rel="nofollow noreferrer" target="_blank">CDN是什么？使用CDN有什么优势？</a></li>
+<li><a href="https://juejin.im/post/5d105e1af265da1b71530095" rel="nofollow noreferrer" target="_blank">CDN原理简析</a></li>
+</ul>
+<h3 id="item-0-5">5. 将 CSS 放在文件头部，JavaScript 文件放在底部</h3>
+<p>所有放在 head 标签里的 CSS 和 JS 文件都会堵塞渲染。如果这些 CSS 和 JS 需要加载和解析很久的话，那么页面就空白了。所以 JS 文件要放在底部，等 HTML 解析完了再加载 JS 文件。</p>
+<p>那为什么 CSS 文件还要放在头部呢？</p>
+<p>因为先加载 HTML 再加载 CSS，会让用户第一时间看到的页面是没有样式的、“丑陋”的，为了避免这种情况发生，就要将 CSS 文件放在头部了。</p>
+<p>另外，JS 文件也不是不可以放在头部，只要给 script 标签加上 defer 属性就可以了，异步下载，延迟执行。</p>
+<h3 id="item-0-6">6. 使用字体图标 iconfont 代替图片图标</h3>
+<p>字体图标就是将图标制作成一个字体，使用时就跟字体一样，可以设置属性，例如 font-size、color 等等，非常方便。并且字体图标是矢量图，不会失真。还有一个优点是生成的文件特别小。</p>
+<p>参考资料：</p>
+<ul><li><a href="https://www.iconfont.cn/" rel="nofollow noreferrer" target="_blank">Iconfont-阿里巴巴矢量图标库</a></li></ul>
+<h3 id="item-0-7">7. 善用缓存，不重复加载相同的资源</h3>
+<p>为了避免用户每次访问网站都得请求文件，我们可以通过添加 Expires 或 max-age 来控制这一行为。Expires 设置了一个时间，只要在这个时间之前，浏览器都不会请求文件，而是直接使用缓存。而 max-age 是一个相对时间，建议使用 max-age 代替 Expires 。</p>
+<p>不过这样会产生一个问题，当文件更新了怎么办？怎么通知浏览器重新请求文件？</p>
+<p>可以通过更新页面中引用的资源链接地址，让浏览器主动放弃缓存，加载新资源。</p>
+<p>具体做法是把资源地址 URL 的修改与文件内容关联起来，也就是说，只有文件内容变化，才会导致相应 URL 的变更，从而实现文件级别的精确缓存控制。什么东西与文件内容相关呢？我们会很自然的联想到利用<a href="https://baike.baidu.com/item/%E6%B6%88%E6%81%AF%E6%91%98%E8%A6%81%E7%AE%97%E6%B3%95/3286770?fromtitle=%E6%91%98%E8%A6%81%E7%AE%97%E6%B3%95&amp;fromid=12011257" rel="nofollow noreferrer" target="_blank">数据摘要要算法</a>对文件求摘要信息，摘要信息与文件内容一一对应，就有了一种可以精确到单个文件粒度的缓存控制依据了。</p>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://github.com/woai3c/node-blog/blob/master/doc/node-blog7.md" rel="nofollow noreferrer" target="_blank">webpack + express 实现文件精确缓存</a></li>
+<li><a href="https://www.webpackjs.com/guides/caching/" rel="nofollow noreferrer" target="_blank">webpack-缓存</a></li>
+<li><a href="https://www.zhihu.com/question/20790576/answer/32602154" rel="nofollow noreferrer" target="_blank">张云龙--大公司里怎样开发和部署前端代码？</a></li>
+</ul>
+<h3 id="item-0-8">8. 压缩文件</h3>
+<p>压缩文件可以减少文件下载时间，让用户体验性更好。</p>
+<p>得益于 webpack 和 node 的发展，现在压缩文件已经非常方便了。</p>
+<p>在 webpack 可以使用如下插件进行压缩：</p>
+<ul>
+<li>JavaScript：UglifyPlugin</li>
+<li>CSS ：MiniCssExtractPlugin</li>
+<li>HTML：HtmlWebpackPlugin</li>
+</ul>
+<p>其实，我们还可以做得更好。那就是使用 gzip 压缩。可以通过向 HTTP 请求头中的 Accept-Encoding 头添加 gzip 标识来开启这一功能。当然，服务器也得支持这一功能。</p>
+<p>gzip 是目前最流行和最有效的压缩方法。举个例子，我用 Vue 开发的项目构建后生成的 app.js 文件大小为 1.4MB，使用 gzip 压缩后只有 573KB，体积减少了将近 60%。</p>
+<p>附上 webpack 和 node 配置 gzip 的使用方法。</p>
+<p><strong>下载插件</strong></p>
+<pre class="hljs sql"><code>npm <span class="hljs-keyword">install</span> compression-webpack-<span class="hljs-keyword">plugin</span> <span class="hljs-comment">--save-dev</span>
+npm <span class="hljs-keyword">install</span> compression</code></pre>
+<p><strong>webpack 配置</strong></p>
+<pre class="hljs javascript"><code><span class="hljs-keyword">const</span> CompressionPlugin = <span class="hljs-built_in">require</span>(<span class="hljs-string">'compression-webpack-plugin'</span>);
 
-    <span class="hljs-keyword">let</span> isInitialPatch = <span class="hljs-literal">false</span>
-    <span class="hljs-keyword">const</span> insertedVnodeQueue = []
-
-    <span class="hljs-keyword">if</span> (isUndef(oldVnode)) {
-      <span class="hljs-comment">// empty mount (likely as component), create new root element</span>
-      <span class="hljs-comment">/*oldVnode未定义的时候，其实也就是root节点，创建一个新的节点*/</span>
-      isInitialPatch = <span class="hljs-literal">true</span>
-      createElm(vnode, insertedVnodeQueue, parentElm, refElm)
-    } <span class="hljs-keyword">else</span> {
-      <span class="hljs-comment">/*标记旧的VNode是否有nodeType*/</span>
-      <span class="hljs-comment">/*Github:https://github.com/answershuto*/</span>
-      <span class="hljs-keyword">const</span> isRealElement = isDef(oldVnode.nodeType)
-      <span class="hljs-keyword">if</span> (!isRealElement &amp;&amp; sameVnode(oldVnode, vnode)) {
-        <span class="hljs-comment">// patch existing root node</span>
-        <span class="hljs-comment">/*是同一个节点的时候直接修改现有的节点*/</span>
-        patchVnode(oldVnode, vnode, insertedVnodeQueue, removeOnly)
-      } <span class="hljs-keyword">else</span> {
-        <span class="hljs-keyword">if</span> (isRealElement) {
-          <span class="hljs-comment">// mounting to a real element</span>
-          <span class="hljs-comment">// check if this is server-rendered content and if we can perform</span>
-          <span class="hljs-comment">// a successful hydration.</span>
-          <span class="hljs-keyword">if</span> (oldVnode.nodeType === <span class="hljs-number">1</span> &amp;&amp; oldVnode.hasAttribute(SSR_ATTR)) {
-            <span class="hljs-comment">/*当旧的VNode是服务端渲染的元素，hydrating记为true*/</span>
-            oldVnode.removeAttribute(SSR_ATTR)
-            hydrating = <span class="hljs-literal">true</span>
-          }
-          <span class="hljs-keyword">if</span> (isTrue(hydrating)) {
-            <span class="hljs-comment">/*需要合并到真实DOM上*/</span>
-            <span class="hljs-keyword">if</span> (hydrate(oldVnode, vnode, insertedVnodeQueue)) {
-              <span class="hljs-comment">/*调用insert钩子*/</span>
-              invokeInsertHook(vnode, insertedVnodeQueue, <span class="hljs-literal">true</span>)
-              <span class="hljs-keyword">return</span> oldVnode
-            } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (process.env.NODE_ENV !== <span class="hljs-string">'production'</span>) {
-              warn(
-                <span class="hljs-string">'The client-side rendered virtual DOM tree is not matching '</span> +
-                <span class="hljs-string">'server-rendered content. This is likely caused by incorrect '</span> +
-                <span class="hljs-string">'HTML markup, for example nesting block-level elements inside '</span> +
-                <span class="hljs-string">'&lt;p&gt;, or missing &lt;tbody&gt;. Bailing hydration and performing '</span> +
-                <span class="hljs-string">'full client-side render.'</span>
-              )
+<span class="hljs-built_in">module</span>.exports = {
+  <span class="hljs-attr">plugins</span>: [<span class="hljs-keyword">new</span> CompressionPlugin()],
+}</code></pre>
+<p><strong>node 配置</strong></p>
+<pre class="hljs php"><code><span class="hljs-keyword">const</span> compression = <span class="hljs-keyword">require</span>(<span class="hljs-string">'compression'</span>)
+<span class="hljs-comment">// 在其他中间件前使用</span>
+app.<span class="hljs-keyword">use</span>(<span class="hljs-title">compression</span>())</code></pre>
+<h3 id="item-0-9">9. 图片优化</h3>
+<h4>(1). 图片延迟加载</h4>
+<p>在页面中，先不给图片设置路径，只有当图片出现在浏览器的可视区域时，才去加载真正的图片，这就是延迟加载。对于图片很多的网站来说，一次性加载全部图片，会对用户体验造成很大的影响，所以需要使用图片延迟加载。</p>
+<p>首先可以将图片这样设置，在页面不可见时图片不会加载：</p>
+<pre class="xml hljs"><code class="html" style="word-break: break-word; white-space: initial;"><span class="hljs-tag">&lt;<span class="hljs-name">img</span> <span class="hljs-attr">data-src</span>=<span class="hljs-string">"https://avatars0.githubusercontent.com/u/22117876?s=460&amp;u=7bd8f32788df6988833da6bd155c3cfbebc68006&amp;v=4"</span>&gt;</span></code></pre>
+<p>等页面可见时，使用 JS 加载图片：</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">const</span> img = <span class="hljs-built_in">document</span>.querySelector(<span class="hljs-string">'img'</span>)
+img.src = img.dataset.src</code></pre>
+<p>这样图片就加载出来了，完整的代码可以看一下参考资料。</p>
+<p>参考资料：</p>
+<ul><li><a href="https://juejin.im/entry/594a483061ff4b006c12cea1" rel="nofollow noreferrer" target="_blank">web 前端图片懒加载实现原理</a></li></ul>
+<h4>(2). 响应式图片</h4>
+<p>响应式图片的优点是浏览器能够根据屏幕大小自动加载合适的图片。</p>
+<p>通过 <code>picture</code> 实现</p>
+<pre class="xml hljs"><code class="html"><span class="hljs-tag">&lt;<span class="hljs-name">picture</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">source</span> <span class="hljs-attr">srcset</span>=<span class="hljs-string">"banner_w1000.jpg"</span> <span class="hljs-attr">media</span>=<span class="hljs-string">"(min-width: 801px)"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">source</span> <span class="hljs-attr">srcset</span>=<span class="hljs-string">"banner_w800.jpg"</span> <span class="hljs-attr">media</span>=<span class="hljs-string">"(max-width: 800px)"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">img</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"banner_w800.jpg"</span> <span class="hljs-attr">alt</span>=<span class="hljs-string">""</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">picture</span>&gt;</span></code></pre>
+<p>通过 <code>@media</code> 实现</p>
+<pre class="xml hljs"><code class="html">@media (min-width: 769px) {
+    .bg {
+        background-image: url(bg1080.jpg);
+    }
+}
+@media (max-width: 768px) {
+    .bg {
+        background-image: url(bg768.jpg);
+    }
+}</code></pre>
+<h4>(3). 调整图片大小</h4>
+<p>例如，你有一个 1920 * 1080 大小的图片，用缩略图的方式展示给用户，并且当用户鼠标悬停在上面时才展示全图。如果用户从未真正将鼠标悬停在缩略图上，则浪费了下载图片的时间。</p>
+<p>所以，我们可以用两张图片来实行优化。一开始，只加载缩略图，当用户悬停在图片上时，才加载大图。还有一种办法，即对大图进行延迟加载，在所有元素都加载完成后手动更改大图的 src 进行下载。</p>
+<h4>(4). 降低图片质量</h4>
+<p>例如 JPG 格式的图片，100% 的质量和 90% 质量的通常看不出来区别，尤其是用来当背景图的时候。我经常用 PS 切背景图时， 将图片切成 JPG 格式，并且将它压缩到 60% 的质量，基本上看不出来区别。</p>
+<p>压缩方法有两种，一是通过 webpack 插件 <code>image-webpack-loader</code>，二是通过在线网站进行压缩。</p>
+<p>以下附上 webpack 插件 <code>image-webpack-loader</code> 的用法。</p>
+<pre class="hljs matlab"><code style="word-break: break-word; white-space: initial;">npm <span class="hljs-built_in">i</span> -D image-webpack-loader</code></pre>
+<p>webpack 配置</p>
+<pre class="javascript hljs"><code class="js">{
+  <span class="hljs-attr">test</span>: <span class="hljs-regexp">/\.(png|jpe?g|gif|svg)(\?.*)?$/</span>,
+  <span class="hljs-attr">use</span>:[
+    {
+    <span class="hljs-attr">loader</span>: <span class="hljs-string">'url-loader'</span>,
+    <span class="hljs-attr">options</span>: {
+      <span class="hljs-attr">limit</span>: <span class="hljs-number">10000</span>, <span class="hljs-comment">/* 图片大小小于1000字节限制时会自动转成 base64 码引用*/</span>
+      <span class="hljs-attr">name</span>: utils.assetsPath(<span class="hljs-string">'img/[name].[hash:7].[ext]'</span>)
+      }
+    },
+    <span class="hljs-comment">/*对图片进行压缩*/</span>
+    {
+      <span class="hljs-attr">loader</span>: <span class="hljs-string">'image-webpack-loader'</span>,
+      <span class="hljs-attr">options</span>: {
+        <span class="hljs-attr">bypassOnDebug</span>: <span class="hljs-literal">true</span>,
+      }
+    }
+  ]
+}</code></pre>
+<h4>(5). 尽可能利用 CSS3 效果代替图片</h4>
+<p>有很多图片使用 CSS 效果（渐变、阴影等）就能画出来，这种情况选择 CSS3 效果更好。因为代码大小通常是图片大小的几分之一甚至几十分之一。</p>
+<p>参考资料：</p>
+<ul><li><a href="https://juejin.im/post/5cad99b5518825215d37b894" rel="nofollow noreferrer" target="_blank">img图片在webpack中使用</a></li></ul>
+<h3 id="item-0-10">10. 通过 webpack 按需加载代码，提取第三库代码，减少 ES6 转为 ES5 的冗余代码</h3>
+<blockquote>懒加载或者按需加载，是一种很好的优化网页或应用的方式。这种方式实际上是先把你的代码在一些逻辑断点处分离开，然后在一些代码块中完成某些操作后，立即引用或即将引用另外一些新的代码块。这样加快了应用的初始加载速度，减轻了它的总体体积，因为某些代码块可能永远不会被加载。</blockquote>
+<h4>根据文件内容生成文件名，结合 import 动态引入组件实现按需加载</h4>
+<p>通过配置 output 的 filename 属性可以实现这个需求。filename 属性的值选项中有一个 [contenthash]，它将根据文件内容创建出唯一 hash。当文件内容发生变化时，[contenthash] 也会发生变化。</p>
+<pre class="javascript hljs"><code class="js">output: {
+    <span class="hljs-attr">filename</span>: <span class="hljs-string">'[name].[contenthash].js'</span>,
+    <span class="hljs-attr">chunkFilename</span>: <span class="hljs-string">'[name].[contenthash].js'</span>,
+    <span class="hljs-attr">path</span>: path.resolve(__dirname, <span class="hljs-string">'../dist'</span>),
+},</code></pre>
+<h4>提取第三方库</h4>
+<p>由于引入的第三方库一般都比较稳定，不会经常改变。所以将它们单独提取出来，作为长期缓存是一个更好的选择。<br>这里需要使用 webpack4 的 splitChunk 插件 cacheGroups 选项。</p>
+<pre class="javascript hljs"><code class="js">optimization: {
+      <span class="hljs-attr">runtimeChunk</span>: {
+        <span class="hljs-attr">name</span>: <span class="hljs-string">'manifest'</span> <span class="hljs-comment">// 将 webpack 的 runtime 代码拆分为一个单独的 chunk。</span>
+    },
+    <span class="hljs-attr">splitChunks</span>: {
+        <span class="hljs-attr">cacheGroups</span>: {
+            <span class="hljs-attr">vendor</span>: {
+                <span class="hljs-attr">name</span>: <span class="hljs-string">'chunk-vendors'</span>,
+                <span class="hljs-attr">test</span>: <span class="hljs-regexp">/[\\/]node_modules[\\/]/</span>,
+                <span class="hljs-attr">priority</span>: <span class="hljs-number">-10</span>,
+                <span class="hljs-attr">chunks</span>: <span class="hljs-string">'initial'</span>
+            },
+            <span class="hljs-attr">common</span>: {
+                <span class="hljs-attr">name</span>: <span class="hljs-string">'chunk-common'</span>,
+                <span class="hljs-attr">minChunks</span>: <span class="hljs-number">2</span>,
+                <span class="hljs-attr">priority</span>: <span class="hljs-number">-20</span>,
+                <span class="hljs-attr">chunks</span>: <span class="hljs-string">'initial'</span>,
+                <span class="hljs-attr">reuseExistingChunk</span>: <span class="hljs-literal">true</span>
             }
-          }
-          <span class="hljs-comment">// either not server-rendered, or hydration failed.</span>
-          <span class="hljs-comment">// create an empty node and replace it</span>
-          <span class="hljs-comment">/*如果不是服务端渲染或者合并到真实DOM失败，则创建一个空的VNode节点替换它*/</span>
-          oldVnode = emptyNodeAt(oldVnode)
-        }
-        <span class="hljs-comment">// replacing existing element</span>
-        <span class="hljs-comment">/*取代现有元素*/</span>
-        <span class="hljs-keyword">const</span> oldElm = oldVnode.elm
-        <span class="hljs-keyword">const</span> parentElm = nodeOps.parentNode(oldElm)
-        createElm(
-          vnode,
-          insertedVnodeQueue,
-          <span class="hljs-comment">// extremely rare edge case: do not insert if old element is in a</span>
-          <span class="hljs-comment">// leaving transition. Only happens when combining transition +</span>
-          <span class="hljs-comment">// keep-alive + HOCs. (#4590)</span>
-          oldElm._leaveCb ? <span class="hljs-literal">null</span> : parentElm,
-          nodeOps.nextSibling(oldElm)
-        )
-
-        <span class="hljs-keyword">if</span> (isDef(vnode.parent)) {
-          <span class="hljs-comment">// component root element replaced.</span>
-          <span class="hljs-comment">// update parent placeholder node element, recursively</span>
-          <span class="hljs-comment">/*组件根节点被替换，遍历更新父节点element*/</span>
-          <span class="hljs-keyword">let</span> ancestor = vnode.parent
-          <span class="hljs-keyword">while</span> (ancestor) {
-            ancestor.elm = vnode.elm
-            ancestor = ancestor.parent
-          }
-          <span class="hljs-keyword">if</span> (isPatchable(vnode)) {
-            <span class="hljs-comment">/*调用create回调*/</span>
-            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>; i &lt; cbs.create.length; ++i) {
-              cbs.create[i](emptyNode, vnode.parent)
-            }
-          }
-        }
-
-        <span class="hljs-keyword">if</span> (isDef(parentElm)) {
-          <span class="hljs-comment">/*移除老节点*/</span>
-          removeVnodes(parentElm, [oldVnode], <span class="hljs-number">0</span>, <span class="hljs-number">0</span>)
-        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isDef(oldVnode.tag)) {
-          <span class="hljs-comment">/*Github:https://github.com/answershuto*/</span>
-          <span class="hljs-comment">/*调用destroy钩子*/</span>
-          invokeDestroyHook(oldVnode)
-        }
-      }
+        },
     }
+},</code></pre>
+<ul>
+<li>test: 用于控制哪些模块被这个缓存组匹配到。原封不动传递出去的话，它默认会选择所有的模块。可以传递的值类型：RegExp、String和Function;</li>
+<li>priority：表示抽取权重，数字越大表示优先级越高。因为一个 module 可能会满足多个 cacheGroups 的条件，那么抽取到哪个就由权重最高的说了算；</li>
+<li>reuseExistingChunk：表示是否使用已有的 chunk，如果为 true 则表示如果当前的 chunk 包含的模块已经被抽取出去了，那么将不会重新生成新的。</li>
+<li>minChunks（默认是1）：在分割之前，这个代码块最小应该被引用的次数（译注：保证代码块复用性，默认配置的策略是不需要多次引用也可以被分割）</li>
+<li>chunks (默认是async) ：initial、async和all</li>
+<li>name(打包的chunks的名字)：字符串或者函数(函数可以根据条件自定义名字)</li>
+</ul>
+<h4>减少 ES6 转为 ES5 的冗余代码</h4>
+<p>Babel 转化后的代码想要实现和原来代码一样的功能需要借助一些帮助函数，比如：</p>
+<pre class="javascript hljs"><code class="js" style="word-break: break-word; white-space: initial;"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Person</span> </span>{}</code></pre>
+<p>会被转换为：</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-meta">"use strict"</span>;
 
-    <span class="hljs-comment">/*调用insert钩子*/</span>
-    invokeInsertHook(vnode, insertedVnodeQueue, isInitialPatch)
-    <span class="hljs-keyword">return</span> vnode.elm
-  }</code></pre><p>从代码中不难发现，当oldVnode与vnode在sameVnode的时候才会进行patchVnode，也就是新旧VNode节点判定为同一节点的时候才会进行patchVnode这个过程，否则就是创建新的DOM，移除旧的DOM。</p>
-<p>怎么样的节点算sameVnode呢？</p>
-<h2 id="user-content-samevnode" data-id="heading-4">sameVnode</h2>
-<p>我们来看一下sameVnode的实现。</p>
-<pre><code class="hljs JavaScript copyable"><span class="hljs-comment">/*
-  判断两个VNode节点是否是同一个节点，需要满足以下条件
-  key相同
-  tag（当前节点的标签名）相同
-  isComment（是否为注释节点）相同
-  是否data（当前节点对应的对象，包含了具体的一些数据信息，是一个VNodeData类型，可以参考VNodeData类型中的数据信息）都有定义
-  当标签是&lt;input&gt;的时候，type必须相同
-*/</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sameVnode</span> (<span class="hljs-params">a, b</span>) </span>{
-  <span class="hljs-keyword">return</span> (
-    a.key === b.key &amp;&amp;
-    a.tag === b.tag &amp;&amp;
-    a.isComment === b.isComment &amp;&amp;
-    isDef(a.data) === isDef(b.data) &amp;&amp;
-    sameInputType(a, b)
-  )
-}
-
-<span class="hljs-comment">// Some browsers do not support dynamically changing type for &lt;input&gt;</span>
-<span class="hljs-comment">// so they need to be treated as different nodes</span>
-<span class="hljs-comment">/*
-  判断当标签是&lt;input&gt;的时候，type是否相同
-  某些浏览器不支持动态修改&lt;input&gt;类型，所以他们被视为不同类型
-*/</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sameInputType</span> (<span class="hljs-params">a, b</span>) </span>{
-  <span class="hljs-keyword">if</span> (a.tag !== <span class="hljs-string">'input'</span>) <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>
-  <span class="hljs-keyword">let</span> i
-  <span class="hljs-keyword">const</span> typeA = isDef(i = a.data) &amp;&amp; isDef(i = i.attrs) &amp;&amp; i.type
-  <span class="hljs-keyword">const</span> typeB = isDef(i = b.data) &amp;&amp; isDef(i = i.attrs) &amp;&amp; i.type
-  <span class="hljs-keyword">return</span> typeA === typeB
-}</code></pre><p>当两个VNode的tag、key、isComment都相同，并且同时定义或未定义data的时候，且如果标签为input则type必须相同。这时候这两个VNode则算sameVnode，可以直接进行patchVnode操作。</p>
-<h2 id="user-content-patchvnode" data-id="heading-5">patchVnode</h2>
-<p>还是先来看一下patchVnode的代码。</p>
-<pre><code class="hljs JavaScript copyable">  <span class="hljs-comment">/*patch VNode节点*/</span>
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">patchVnode</span> (<span class="hljs-params">oldVnode, vnode, insertedVnodeQueue, removeOnly</span>) </span>{
-    <span class="hljs-comment">/*两个VNode节点相同则直接返回*/</span>
-    <span class="hljs-keyword">if</span> (oldVnode === vnode) {
-      <span class="hljs-keyword">return</span>
-    }
-    <span class="hljs-comment">// reuse element for static trees.</span>
-    <span class="hljs-comment">// note we only do this if the vnode is cloned -</span>
-    <span class="hljs-comment">// if the new node is not cloned it means the render functions have been</span>
-    <span class="hljs-comment">// reset by the hot-reload-api and we need to do a proper re-render.</span>
-    <span class="hljs-comment">/*
-      如果新旧VNode都是静态的，同时它们的key相同（代表同一节点），
-      并且新的VNode是clone或者是标记了once（标记v-once属性，只渲染一次），
-      那么只需要替换elm以及componentInstance即可。
-    */</span>
-    <span class="hljs-keyword">if</span> (isTrue(vnode.isStatic) &amp;&amp;
-        isTrue(oldVnode.isStatic) &amp;&amp;
-        vnode.key === oldVnode.key &amp;&amp;
-        (isTrue(vnode.isCloned) || isTrue(vnode.isOnce))) {
-      vnode.elm = oldVnode.elm
-      vnode.componentInstance = oldVnode.componentInstance
-      <span class="hljs-keyword">return</span>
-    }
-    <span class="hljs-keyword">let</span> i
-    <span class="hljs-keyword">const</span> data = vnode.data
-    <span class="hljs-keyword">if</span> (isDef(data) &amp;&amp; isDef(i = data.hook) &amp;&amp; isDef(i = i.prepatch)) {
-      <span class="hljs-comment">/*i = data.hook.prepatch，如果存在的话，见"./create-component componentVNodeHooks"。*/</span>
-      i(oldVnode, vnode)
-    }
-    <span class="hljs-keyword">const</span> elm = vnode.elm = oldVnode.elm
-    <span class="hljs-keyword">const</span> oldCh = oldVnode.children
-    <span class="hljs-keyword">const</span> ch = vnode.children
-    <span class="hljs-keyword">if</span> (isDef(data) &amp;&amp; isPatchable(vnode)) {
-      <span class="hljs-comment">/*调用update回调以及update钩子*/</span>
-      <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; cbs.update.length; ++i) cbs.update[i](oldVnode, vnode)
-      <span class="hljs-keyword">if</span> (isDef(i = data.hook) &amp;&amp; isDef(i = i.update)) i(oldVnode, vnode)
-    }
-    <span class="hljs-comment">/*如果这个VNode节点没有text文本时*/</span>
-    <span class="hljs-keyword">if</span> (isUndef(vnode.text)) {
-      <span class="hljs-keyword">if</span> (isDef(oldCh) &amp;&amp; isDef(ch)) {
-        <span class="hljs-comment">/*新老节点均有children子节点，则对子节点进行diff操作，调用updateChildren*/</span>
-        <span class="hljs-keyword">if</span> (oldCh !== ch) updateChildren(elm, oldCh, ch, insertedVnodeQueue, removeOnly)
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isDef(ch)) {
-        <span class="hljs-comment">/*如果老节点没有子节点而新节点存在子节点，先清空elm的文本内容，然后为当前节点加入子节点*/</span>
-        <span class="hljs-keyword">if</span> (isDef(oldVnode.text)) nodeOps.setTextContent(elm, <span class="hljs-string">''</span>)
-        addVnodes(elm, <span class="hljs-literal">null</span>, ch, <span class="hljs-number">0</span>, ch.length - <span class="hljs-number">1</span>, insertedVnodeQueue)
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isDef(oldCh)) {
-        <span class="hljs-comment">/*当新节点没有子节点而老节点有子节点的时候，则移除所有ele的子节点*/</span>
-        removeVnodes(elm, oldCh, <span class="hljs-number">0</span>, oldCh.length - <span class="hljs-number">1</span>)
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isDef(oldVnode.text)) {
-        <span class="hljs-comment">/*当新老节点都无子节点的时候，只是文本的替换，因为这个逻辑中新节点text不存在，所以直接去除ele的文本*/</span>
-        nodeOps.setTextContent(elm, <span class="hljs-string">''</span>)
-      }
-    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (oldVnode.text !== vnode.text) {
-      <span class="hljs-comment">/*当新老节点text不一样时，直接替换这段文本*/</span>
-      nodeOps.setTextContent(elm, vnode.text)
-    }
-    <span class="hljs-comment">/*调用postpatch钩子*/</span>
-    <span class="hljs-keyword">if</span> (isDef(data)) {
-      <span class="hljs-keyword">if</span> (isDef(i = data.hook) &amp;&amp; isDef(i = i.postpatch)) i(oldVnode, vnode)
-    }
-  }</code></pre><p>patchVnode的规则是这样的：</p>
-<p>1.如果新旧VNode都是静态的，同时它们的key相同（代表同一节点），并且新的VNode是clone或者是标记了once（标记v-once属性，只渲染一次），那么只需要替换elm以及componentInstance即可。</p>
-<p>2.新老节点均有children子节点，则对子节点进行diff操作，调用updateChildren，这个updateChildren也是diff的核心。</p>
-<p>3.如果老节点没有子节点而新节点存在子节点，先清空老节点DOM的文本内容，然后为当前DOM节点加入子节点。</p>
-<p>4.当新节点没有子节点而老节点有子节点的时候，则移除该DOM节点的所有子节点。</p>
-<p>5.当新老节点都无子节点的时候，只是文本的替换。</p>
-<h2 id="user-content-updatechildren" data-id="heading-6">updateChildren</h2>
-<pre><code class="hljs JavaScript copyable">  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateChildren</span> (<span class="hljs-params">parentElm, oldCh, newCh, insertedVnodeQueue, removeOnly</span>) </span>{
-    <span class="hljs-keyword">let</span> oldStartIdx = <span class="hljs-number">0</span>
-    <span class="hljs-keyword">let</span> newStartIdx = <span class="hljs-number">0</span>
-    <span class="hljs-keyword">let</span> oldEndIdx = oldCh.length - <span class="hljs-number">1</span>
-    <span class="hljs-keyword">let</span> oldStartVnode = oldCh[<span class="hljs-number">0</span>]
-    <span class="hljs-keyword">let</span> oldEndVnode = oldCh[oldEndIdx]
-    <span class="hljs-keyword">let</span> newEndIdx = newCh.length - <span class="hljs-number">1</span>
-    <span class="hljs-keyword">let</span> newStartVnode = newCh[<span class="hljs-number">0</span>]
-    <span class="hljs-keyword">let</span> newEndVnode = newCh[newEndIdx]
-    <span class="hljs-keyword">let</span> oldKeyToIdx, idxInOld, elmToMove, refElm
-
-    <span class="hljs-comment">// removeOnly is a special flag used only by &lt;transition-group&gt;</span>
-    <span class="hljs-comment">// to ensure removed elements stay in correct relative positions</span>
-    <span class="hljs-comment">// during leaving transitions</span>
-    <span class="hljs-keyword">const</span> canMove = !removeOnly
-
-    <span class="hljs-keyword">while</span> (oldStartIdx &lt;= oldEndIdx &amp;&amp; newStartIdx &lt;= newEndIdx) {
-      <span class="hljs-keyword">if</span> (isUndef(oldStartVnode)) {
-        oldStartVnode = oldCh[++oldStartIdx] <span class="hljs-comment">// Vnode has been moved left</span>
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isUndef(oldEndVnode)) {
-        oldEndVnode = oldCh[--oldEndIdx]
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (sameVnode(oldStartVnode, newStartVnode)) {
-        <span class="hljs-comment">/*前四种情况其实是指定key的时候，判定为同一个VNode，则直接patchVnode即可，分别比较oldCh以及newCh的两头节点2*2=4种情况*/</span>
-        patchVnode(oldStartVnode, newStartVnode, insertedVnodeQueue)
-        oldStartVnode = oldCh[++oldStartIdx]
-        newStartVnode = newCh[++newStartIdx]
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (sameVnode(oldEndVnode, newEndVnode)) {
-        patchVnode(oldEndVnode, newEndVnode, insertedVnodeQueue)
-        oldEndVnode = oldCh[--oldEndIdx]
-        newEndVnode = newCh[--newEndIdx]
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (sameVnode(oldStartVnode, newEndVnode)) { <span class="hljs-comment">// Vnode moved right</span>
-        patchVnode(oldStartVnode, newEndVnode, insertedVnodeQueue)
-        canMove &amp;&amp; nodeOps.insertBefore(parentElm, oldStartVnode.elm, nodeOps.nextSibling(oldEndVnode.elm))
-        oldStartVnode = oldCh[++oldStartIdx]
-        newEndVnode = newCh[--newEndIdx]
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (sameVnode(oldEndVnode, newStartVnode)) { <span class="hljs-comment">// Vnode moved left</span>
-        patchVnode(oldEndVnode, newStartVnode, insertedVnodeQueue)
-        canMove &amp;&amp; nodeOps.insertBefore(parentElm, oldEndVnode.elm, oldStartVnode.elm)
-        oldEndVnode = oldCh[--oldEndIdx]
-        newStartVnode = newCh[++newStartIdx]
-      } <span class="hljs-keyword">else</span> {
-        <span class="hljs-comment">/*
-          生成一个key与旧VNode的key对应的哈希表（只有第一次进来undefined的时候会生成，也为后面检测重复的key值做铺垫）
-          比如childre是这样的 [{xx: xx, key: 'key0'}, {xx: xx, key: 'key1'}, {xx: xx, key: 'key2'}]  beginIdx = 0   endIdx = 2  
-          结果生成{key0: 0, key1: 1, key2: 2}
-        */</span>
-        <span class="hljs-keyword">if</span> (isUndef(oldKeyToIdx)) oldKeyToIdx = createKeyToOldIdx(oldCh, oldStartIdx, oldEndIdx)
-        <span class="hljs-comment">/*如果newStartVnode新的VNode节点存在key并且这个key在oldVnode中能找到则返回这个节点的idxInOld（即第几个节点，下标）*/</span>
-        idxInOld = isDef(newStartVnode.key) ? oldKeyToIdx[newStartVnode.key] : <span class="hljs-literal">null</span>
-        <span class="hljs-keyword">if</span> (isUndef(idxInOld)) { <span class="hljs-comment">// New element</span>
-          <span class="hljs-comment">/*newStartVnode没有key或者是该key没有在老节点中找到则创建一个新的节点*/</span>
-          createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm)
-          newStartVnode = newCh[++newStartIdx]
-        } <span class="hljs-keyword">else</span> {
-          <span class="hljs-comment">/*获取同key的老节点*/</span>
-          elmToMove = oldCh[idxInOld]
-          <span class="hljs-comment">/* istanbul ignore if */</span>
-          <span class="hljs-keyword">if</span> (process.env.NODE_ENV !== <span class="hljs-string">'production'</span> &amp;&amp; !elmToMove) {
-            <span class="hljs-comment">/*如果elmToMove不存在说明之前已经有新节点放入过这个key的DOM中，提示可能存在重复的key，确保v-for的时候item有唯一的key值*/</span>
-            warn(
-              <span class="hljs-string">'It seems there are duplicate keys that is causing an update error. '</span> +
-              <span class="hljs-string">'Make sure each v-for item has a unique key.'</span>
-            )
-          }
-          <span class="hljs-keyword">if</span> (sameVnode(elmToMove, newStartVnode)) {
-            <span class="hljs-comment">/*Github:https://github.com/answershuto*/</span>
-            <span class="hljs-comment">/*如果新VNode与得到的有相同key的节点是同一个VNode则进行patchVnode*/</span>
-            patchVnode(elmToMove, newStartVnode, insertedVnodeQueue)
-            <span class="hljs-comment">/*因为已经patchVnode进去了，所以将这个老节点赋值undefined，之后如果还有新节点与该节点key相同可以检测出来提示已有重复的key*/</span>
-            oldCh[idxInOld] = <span class="hljs-literal">undefined</span>
-            <span class="hljs-comment">/*当有标识位canMove实可以直接插入oldStartVnode对应的真实DOM节点前面*/</span>
-            canMove &amp;&amp; nodeOps.insertBefore(parentElm, newStartVnode.elm, oldStartVnode.elm)
-            newStartVnode = newCh[++newStartIdx]
-          } <span class="hljs-keyword">else</span> {
-            <span class="hljs-comment">// same key but different element. treat as new element</span>
-            <span class="hljs-comment">/*当新的VNode与找到的同样key的VNode不是sameVNode的时候（比如说tag不一样或者是有不一样type的input标签），创建一个新的节点*/</span>
-            createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm)
-            newStartVnode = newCh[++newStartIdx]
-          }
-        }
-      }
-    }
-    <span class="hljs-keyword">if</span> (oldStartIdx &gt; oldEndIdx) {
-      <span class="hljs-comment">/*全部比较完成以后，发现oldStartIdx &gt; oldEndIdx的话，说明老节点已经遍历完了，新节点比老节点多，所以这时候多出来的新节点需要一个一个创建出来加入到真实DOM中*/</span>
-      refElm = isUndef(newCh[newEndIdx + <span class="hljs-number">1</span>]) ? <span class="hljs-literal">null</span> : newCh[newEndIdx + <span class="hljs-number">1</span>].elm
-      addVnodes(parentElm, refElm, newCh, newStartIdx, newEndIdx, insertedVnodeQueue)
-    } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (newStartIdx &gt; newEndIdx) {
-      <span class="hljs-comment">/*如果全部比较完成以后发现newStartIdx &gt; newEndIdx，则说明新节点已经遍历完了，老节点多余新节点，这个时候需要将多余的老节点从真实DOM中移除*/</span>
-      removeVnodes(parentElm, oldCh, oldStartIdx, oldEndIdx)
-    }
-  }</code></pre><p>直接看源码可能比较难以滤清其中的关系，我们通过图来看一下。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/ed3fe3ef6c580e16711c39159ce87cd4?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/ed3fe3ef6c580e16711c39159ce87cd4?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>首先，在新老两个VNode节点的左右头尾两侧都有一个变量标记，在遍历过程中这几个变量都会向中间靠拢。当oldStartIdx &lt;= oldEndIdx或者newStartIdx &lt;= newEndIdx时结束循环。</p>
-<p>索引与VNode节点的对应关系：<br>oldStartIdx =&gt; oldStartVnode<br>oldEndIdx =&gt; oldEndVnode<br>newStartIdx =&gt; newStartVnode<br>newEndIdx =&gt; newEndVnode</p>
-<p>在遍历中，如果存在key，并且满足sameVnode，会将该DOM节点进行复用，否则则会创建一个新的DOM节点。</p>
-<p>首先，oldStartVnode、oldEndVnode与newStartVnode、newEndVnode两两比较一共有2*2=4种比较方法。</p>
-<p>当新老VNode节点的start或者end满足sameVnode时，也就是sameVnode(oldStartVnode, newStartVnode)或者sameVnode(oldEndVnode, newEndVnode)，直接将该VNode节点进行patchVnode即可。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/dbf1c71d42eaddc6de60301aad17c860?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/dbf1c71d42eaddc6de60301aad17c860?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>如果oldStartVnode与newEndVnode满足sameVnode，即sameVnode(oldStartVnode, newEndVnode)。</p>
-<p>这时候说明oldStartVnode已经跑到了oldEndVnode后面去了，进行patchVnode的同时还需要将真实DOM节点移动到oldEndVnode的后面。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/0b5beb1c771c3965a77c787fe55a3b57?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/0b5beb1c771c3965a77c787fe55a3b57?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>如果oldEndVnode与newStartVnode满足sameVnode，即sameVnode(oldEndVnode, newStartVnode)。</p>
-<p>这说明oldEndVnode跑到了oldStartVnode的前面，进行patchVnode的同时真实的DOM节点移动到了oldStartVnode的前面。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/dc9a1e0b27411b2585960e971559382f?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/dc9a1e0b27411b2585960e971559382f?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>如果以上情况均不符合，则通过createKeyToOldIdx会得到一个oldKeyToIdx，里面存放了一个key为旧的VNode，value为对应index序列的哈希表。从这个哈希表中可以找到是否有与newStartVnode一致key的旧的VNode节点，如果同时满足sameVnode，patchVnode的同时会将这个真实DOM（elmToMove）移动到oldStartVnode对应的真实DOM的前面。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/ed03e90b708939205236225c582e26fb?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/ed03e90b708939205236225c582e26fb?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>当然也有可能newStartVnode在旧的VNode节点找不到一致的key，或者是即便key相同却不是sameVnode，这个时候会调用createElm创建一个新的DOM节点。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/73241a7ea0b6f52c0df4d835a827f3b4?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/73241a7ea0b6f52c0df4d835a827f3b4?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>到这里循环已经结束了，那么剩下我们还需要处理多余或者不够的真实DOM节点。</p>
-<p>1.当结束时oldStartIdx &gt; oldEndIdx，这个时候老的VNode节点已经遍历完了，但是新的节点还没有。说明了新的VNode节点实际上比老的VNode节点多，也就是比真实DOM多，需要将剩下的（也就是新增的）VNode节点插入到真实DOM节点中去，此时调用addVnodes（批量调用createElm的接口将这些节点加入到真实DOM中去）。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/22369d39d970155963bd71a1370e9b07?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/22369d39d970155963bd71a1370e9b07?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<p>2。同理，当newStartIdx &gt; newEndIdx时，新的VNode节点已经遍历完了，但是老的节点还有剩余，说明真实DOM节点多余了，需要从文档中删除，这时候调用removeVnodes将这些多余的真实DOM删除。</p>
-<p></p><figure><img alt="img" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/18/c067fa75aa884a2c231d940de35ef7a1?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/18/c067fa75aa884a2c231d940de35ef7a1?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption>img</figcaption></figure><p></p>
-<h2 id="user-content-dom-" data-id="heading-7">DOM操作</h2>
-<p>由于Vue使用了虚拟DOM，所以虚拟DOM可以在任何支持JavaScript语言的平台上操作，譬如说目前Vue支持的浏览器平台或是weex，在虚拟DOM的实现上是一致的。那么最后虚拟DOM如何映射到真实的DOM节点上呢？</p>
-<p>Vue为平台做了一层适配层，浏览器平台见<a href="https://github.com/answershuto/learnVue/blob/master/vue-src/platforms/web/runtime/node-ops.js" target="_blank" rel="nofollow noopener noreferrer">/platforms/web/runtime/node-ops.js</a>以及weex平台见<a href="https://github.com/answershuto/learnVue/blob/master/vue-src/platforms/weex/runtime/node-ops.js" target="_blank" rel="nofollow noopener noreferrer">/platforms/weex/runtime/node-ops.js</a>。不同平台之间通过适配层对外提供相同的接口，虚拟DOM进行操作真实DOM节点的时候，只需要调用这些适配层的接口即可，而内部实现则不需要关心，它会根据平台的改变而改变。</p>
-<p>现在又出现了一个问题，我们只是将虚拟DOM映射成了真实的DOM。那如何给这些DOM加入attr、class、style等DOM属性呢？</p>
-<p>这要依赖于虚拟DOM的生命钩子。虚拟DOM提供了如下的钩子函数，分别在不同的时期会进行调用。</p>
-<pre><code class="hljs JavaScript copyable"><span class="hljs-keyword">const</span> hooks = [<span class="hljs-string">'create'</span>, <span class="hljs-string">'activate'</span>, <span class="hljs-string">'update'</span>, <span class="hljs-string">'remove'</span>, <span class="hljs-string">'destroy'</span>]
-
-<span class="hljs-comment">/*构建cbs回调函数，web平台上见/platforms/web/runtime/modules*/</span>
-  <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; hooks.length; ++i) {
-    cbs[hooks[i]] = []
-    <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt; modules.length; ++j) {
-      <span class="hljs-keyword">if</span> (isDef(modules[j][hooks[i]])) {
-        cbs[hooks[i]].push(modules[j][hooks[i]])
-      }
-    }
-  }</code></pre><p>同理，也会根据不同平台有自己不同的实现，我们这里以Web平台为例。Web平台的钩子函数见<a href="https://github.com/answershuto/learnVue/tree/master/vue-src/platforms/web/runtime/modules" target="_blank" rel="nofollow noopener noreferrer">/platforms/web/runtime/modules</a>。里面有对attr、class、props、events、style以及transition（过渡状态）的DOM属性进行操作。</p>
-<p>以attr为例，代码很简单。</p>
-<pre><code class="hljs JavaScript copyable"><span class="hljs-comment">/* @flow */</span>
-
-<span class="hljs-keyword">import</span> { isIE9 } <span class="hljs-keyword">from</span> <span class="hljs-string">'core/util/env'</span>
-
-<span class="hljs-keyword">import</span> {
-  extend,
-  isDef,
-  isUndef
-} <span class="hljs-keyword">from</span> <span class="hljs-string">'shared/util'</span>
-
-<span class="hljs-keyword">import</span> {
-  isXlink,
-  xlinkNS,
-  getXlinkProp,
-  isBooleanAttr,
-  isEnumeratedAttr,
-  isFalsyAttrValue
-} <span class="hljs-keyword">from</span> <span class="hljs-string">'web/util/index'</span>
-
-<span class="hljs-comment">/*更新attr*/</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateAttrs</span> (<span class="hljs-params">oldVnode: VNodeWithData, vnode: VNodeWithData</span>) </span>{
-  <span class="hljs-comment">/*如果旧的以及新的VNode节点均没有attr属性，则直接返回*/</span>
-  <span class="hljs-keyword">if</span> (isUndef(oldVnode.data.attrs) &amp;&amp; isUndef(vnode.data.attrs)) {
-    <span class="hljs-keyword">return</span>
-  }
-  <span class="hljs-keyword">let</span> key, cur, old
-  <span class="hljs-comment">/*VNode节点对应的Dom实例*/</span>
-  <span class="hljs-keyword">const</span> elm = vnode.elm
-  <span class="hljs-comment">/*旧VNode节点的attr*/</span>
-  <span class="hljs-keyword">const</span> oldAttrs = oldVnode.data.attrs || {}
-  <span class="hljs-comment">/*新VNode节点的attr*/</span>
-  <span class="hljs-keyword">let</span> attrs: any = vnode.data.attrs || {}
-  <span class="hljs-comment">// clone observed objects, as the user probably wants to mutate it</span>
-  <span class="hljs-comment">/*如果新的VNode的attr已经有__ob__（代表已经被Observe处理过了）， 进行深拷贝*/</span>
-  <span class="hljs-keyword">if</span> (isDef(attrs.__ob__)) {
-    attrs = vnode.data.attrs = extend({}, attrs)
-  }
-
-  <span class="hljs-comment">/*遍历attr，不一致则替换*/</span>
-  <span class="hljs-keyword">for</span> (key <span class="hljs-keyword">in</span> attrs) {
-    cur = attrs[key]
-    old = oldAttrs[key]
-    <span class="hljs-keyword">if</span> (old !== cur) {
-      setAttr(elm, key, cur)
-    }
-  }
-  <span class="hljs-comment">// #4391: in IE9, setting type can reset value for input[type=radio]</span>
-  <span class="hljs-comment">/* istanbul ignore if */</span>
-  <span class="hljs-keyword">if</span> (isIE9 &amp;&amp; attrs.value !== oldAttrs.value) {
-    setAttr(elm, <span class="hljs-string">'value'</span>, attrs.value)
-  }
-  <span class="hljs-keyword">for</span> (key <span class="hljs-keyword">in</span> oldAttrs) {
-    <span class="hljs-keyword">if</span> (isUndef(attrs[key])) {
-      <span class="hljs-keyword">if</span> (isXlink(key)) {
-        elm.removeAttributeNS(xlinkNS, getXlinkProp(key))
-      } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (!isEnumeratedAttr(key)) {
-        elm.removeAttribute(key)
-      }
-    }
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_classCallCheck</span>(<span class="hljs-params">instance, Constructor</span>) </span>{
+  <span class="hljs-keyword">if</span> (!(instance <span class="hljs-keyword">instanceof</span> Constructor)) {
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-built_in">TypeError</span>(<span class="hljs-string">"Cannot call a class as a function"</span>);
   }
 }
 
-<span class="hljs-comment">/*设置attr*/</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">setAttr</span> (<span class="hljs-params">el: Element, key: string, value: any</span>) </span>{
-  <span class="hljs-keyword">if</span> (isBooleanAttr(key)) {
-    <span class="hljs-comment">// set attribute for blank value</span>
-    <span class="hljs-comment">// e.g. &lt;option disabled&gt;Select one&lt;/option&gt;</span>
-    <span class="hljs-keyword">if</span> (isFalsyAttrValue(value)) {
-      el.removeAttribute(key)
-    } <span class="hljs-keyword">else</span> {
-      el.setAttribute(key, key)
-    }
-  } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isEnumeratedAttr(key)) {
-    el.setAttribute(key, isFalsyAttrValue(value) || value === <span class="hljs-string">'false'</span> ? <span class="hljs-string">'false'</span> : <span class="hljs-string">'true'</span>)
-  } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (isXlink(key)) {
-    <span class="hljs-keyword">if</span> (isFalsyAttrValue(value)) {
-      el.removeAttributeNS(xlinkNS, getXlinkProp(key))
-    } <span class="hljs-keyword">else</span> {
-      el.setAttributeNS(xlinkNS, key, value)
-    }
-  } <span class="hljs-keyword">else</span> {
-    <span class="hljs-keyword">if</span> (isFalsyAttrValue(value)) {
-      el.removeAttribute(key)
-    } <span class="hljs-keyword">else</span> {
-      el.setAttribute(key, value)
-    }
+<span class="hljs-keyword">var</span> Person = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Person</span>(<span class="hljs-params"></span>) </span>{
+  _classCallCheck(<span class="hljs-keyword">this</span>, Person);
+};</code></pre>
+<p>这里 <code>_classCallCheck</code> 就是一个 <code>helper</code> 函数，如果在很多文件里都声明了类，那么就会产生很多个这样的 <code>helper</code> 函数。</p>
+<p>这里的 <code>@babel/runtime</code> 包就声明了所有需要用到的帮助函数，而 <code>@babel/plugin-transform-runtime</code> 的作用就是将所有需要 <code>helper</code> 函数的文件，从 <code>@babel/runtime包</code> 引进来：</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-meta">"use strict"</span>;
+
+<span class="hljs-keyword">var</span> _classCallCheck2 = <span class="hljs-built_in">require</span>(<span class="hljs-string">"@babel/runtime/helpers/classCallCheck"</span>);
+
+<span class="hljs-keyword">var</span> _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_interopRequireDefault</span>(<span class="hljs-params">obj</span>) </span>{
+  <span class="hljs-keyword">return</span> obj &amp;&amp; obj.__esModule ? obj : { <span class="hljs-attr">default</span>: obj };
+}
+
+<span class="hljs-keyword">var</span> Person = <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Person</span>(<span class="hljs-params"></span>) </span>{
+  (<span class="hljs-number">0</span>, _classCallCheck3.default)(<span class="hljs-keyword">this</span>, Person);
+};</code></pre>
+<p>这里就没有再编译出 <code>helper</code> 函数 <code>classCallCheck</code> 了，而是直接引用了 <code>@babel/runtime</code> 中的 <code>helpers/classCallCheck</code>。</p>
+<p><strong>安装</strong></p>
+<pre class="hljs nginx"><code style="word-break: break-word; white-space: initial;"><span class="hljs-attribute">npm</span> i -D <span class="hljs-variable">@babel</span>/plugin-transform-runtime <span class="hljs-variable">@babel</span>/runtime</code></pre>
+<p><strong>使用</strong><br>在 <code>.babelrc</code> 文件中</p>
+<pre class="hljs perl"><code><span class="hljs-string">"plugins"</span>: [
+        <span class="hljs-string">"@babel/plugin-transform-runtime"</span>
+]</code></pre>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://www.jianshu.com/p/d078b5f3036a" rel="nofollow noreferrer" target="_blank">Babel 7.1介绍 transform-runtime polyfill env</a></li>
+<li><a href="http://webpack.docschina.org/guides/lazy-loading/" rel="nofollow noreferrer" target="_blank">懒加载</a></li>
+<li><a href="https://router.vuejs.org/zh/guide/advanced/lazy-loading.html#%E8%B7%AF%E7%94%B1%E6%87%92%E5%8A%A0%E8%BD%BD" rel="nofollow noreferrer" target="_blank">Vue 路由懒加载</a></li>
+<li><a href="https://webpack.docschina.org/guides/caching/" rel="nofollow noreferrer" target="_blank">webpack 缓存</a></li>
+<li><a href="https://juejin.im/post/5af1677c6fb9a07ab508dabb" rel="nofollow noreferrer" target="_blank">一步一步的了解webpack4的splitChunk插件</a></li>
+</ul>
+<h3 id="item-0-11">11. 减少重绘重排</h3>
+<p><strong>浏览器渲染过程</strong></p>
+<ol>
+<li>解析HTML生成DOM树。</li>
+<li>解析CSS生成CSSOM规则树。</li>
+<li>将DOM树与CSSOM规则树合并在一起生成渲染树。</li>
+<li>遍历渲染树开始布局，计算每个节点的位置大小信息。</li>
+<li>将渲染树每个节点绘制到屏幕。</li>
+</ol>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099076" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p><strong>重排</strong></p>
+<p>当改变 DOM 元素位置或大小时，会导致浏览器重新生成渲染树，这个过程叫重排。</p>
+<p><strong>重绘</strong></p>
+<p>当重新生成渲染树后，就要将渲染树每个节点绘制到屏幕，这个过程叫重绘。不是所有的动作都会导致重排，例如改变字体颜色，只会导致重绘。记住，重排会导致重绘，重绘不会导致重排 。</p>
+<p>重排和重绘这两个操作都是非常昂贵的，因为 JavaScript 引擎线程与 GUI 渲染线程是互斥，它们同时只能一个在工作。</p>
+<p>什么操作会导致重排？</p>
+<ul>
+<li>添加或删除可见的 DOM 元素</li>
+<li>元素位置改变</li>
+<li>元素尺寸改变</li>
+<li>内容改变</li>
+<li>浏览器窗口尺寸改变</li>
+</ul>
+<p>如何减少重排重绘？</p>
+<ul>
+<li>用 JavaScript 修改样式时，最好不要直接写样式，而是替换 class 来改变样式。</li>
+<li>如果要对 DOM 元素执行一系列操作，可以将 DOM 元素脱离文档流，修改完成后，再将它带回文档。推荐使用隐藏元素（display:none）或文档碎片（DocumentFragement），都能很好的实现这个方案。</li>
+</ul>
+<h3 id="item-0-12">12. 使用事件委托</h3>
+<p>事件委托利用了事件冒泡，只指定一个事件处理程序，就可以管理某一类型的所有事件。所有用到按钮的事件（多数鼠标事件和键盘事件）都适合采用事件委托技术， 使用事件委托可以节省内存。</p>
+<pre class="javascript hljs"><code class="js">&lt;ul&gt;
+  <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">li</span>&gt;</span>苹果<span class="hljs-tag">&lt;/<span class="hljs-name">li</span>&gt;</span></span>
+  <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">li</span>&gt;</span>香蕉<span class="hljs-tag">&lt;/<span class="hljs-name">li</span>&gt;</span></span>
+  <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">li</span>&gt;</span>凤梨<span class="hljs-tag">&lt;/<span class="hljs-name">li</span>&gt;</span></span>
+&lt;<span class="hljs-regexp">/ul&gt;
+
+/</span><span class="hljs-regexp">/ good
+document.querySelector('ul').onclick = (event) =&gt; {
+  const target = event.target
+  if (target.nodeName === 'LI') {
+    console.log(target.innerHTML)
   }
 }
 
-<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> {
-  <span class="hljs-attr">create</span>: updateAttrs,
-  <span class="hljs-attr">update</span>: updateAttrs
-}</code></pre><p>attr只需要在create以及update钩子被调用时更新DOM的attr属性即可。</p>
-<h2 id="user-content--" data-id="heading-8">关于</h2>
-<p>作者：染陌 </p>
-<p>Email：answershuto@gmail.com  or  answershuto@126.com</p>
-<p>Github:  <a href="https://github.com/answershuto" target="_blank" rel="nofollow noopener noreferrer">github.com/answershuto</a></p>
-<p>Blog：<a href="http://answershuto.github.io/" target="_blank" rel="nofollow noopener noreferrer">answershuto.github.io/</a></p>
-<p>知乎专栏：<a href="https://zhuanlan.zhihu.com/ranmo" target="_blank" rel="nofollow noopener noreferrer">zhuanlan.zhihu.com/ranmo</a></p>
-<p>掘金： <a href="https://juejin.im/user/289926769027053" target="_blank">juejin.im/user/289926…</a></p>
-<p>osChina：<a href="https://my.oschina.net/u/3161824/blog" target="_blank" rel="nofollow noopener noreferrer">my.oschina.net/u/3161824/b…</a></p>
-<p>转载请注明出处，谢谢。</p>
-<p>欢迎关注我的公众号</p>
-<p></p><figure><img alt="" class="lazyload inited loaded" data-src="https://user-gold-cdn.xitu.io/2017/9/16/0778541fcb3b8dd773027a2ebed663d9?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" data-width="800" data-height="600" src="https://user-gold-cdn.xitu.io/2017/9/16/0778541fcb3b8dd773027a2ebed663d9?imageView2/0/w/1280/h/960/format/webp/ignore-error/1"><figcaption></figcaption></figure><p></p>
-</div> <div data-v-78c9b824="" class="image-viewer-box"><!----></div></div>
+/</span><span class="hljs-regexp">/ bad
+document.querySelectorAll('li').forEach((e) =&gt; {
+  e.onclick = function() {
+    console.log(this.innerHTML)
+  }
+}) </span></code></pre>
+<h3 id="item-0-13">13. 注意程序的局部性</h3>
+<p>一个编写良好的计算机程序常常具有良好的局部性，它们倾向于引用最近引用过的数据项附近的数据项，或者最近引用过的数据项本身，这种倾向性，被称为局部性原理。有良好局部性的程序比局部性差的程序运行得更快。</p>
+<p><strong>局部性通常有两种不同的形式：</strong></p>
+<ul>
+<li>时间局部性：在一个具有良好时间局部性的程序中，被引用过一次的内存位置很可能在不远的将来被多次引用。</li>
+<li>空间局部性 ：在一个具有良好空间局部性的程序中，如果一个内存位置被引用了一次，那么程序很可能在不远的将来引用附近的一个内存位置。</li>
+</ul>
+<p>时间局部性示例</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sum</span>(<span class="hljs-params">arry</span>) </span>{
+    <span class="hljs-keyword">let</span> i, sum = <span class="hljs-number">0</span>
+    <span class="hljs-keyword">let</span> len = arry.length
+
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; len; i++) {
+        sum += arry[i]
+    }
+
+    <span class="hljs-keyword">return</span> sum
+}</code></pre>
+<p>在这个例子中，变量sum在每次循环迭代中被引用一次，因此，对于sum来说，具有良好的时间局部性</p>
+<p>空间局部性示例</p>
+<p><strong>具有良好空间局部性的程序</strong></p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-comment">// 二维数组 </span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sum1</span>(<span class="hljs-params">arry, rows, cols</span>) </span>{
+    <span class="hljs-keyword">let</span> i, j, sum = <span class="hljs-number">0</span>
+
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; rows; i++) {
+        <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt; cols; j++) {
+            sum += arry[i][j]
+        }
+    }
+    <span class="hljs-keyword">return</span> sum
+}</code></pre>
+<p><strong>空间局部性差的程序</strong></p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-comment">// 二维数组 </span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">sum2</span>(<span class="hljs-params">arry, rows, cols</span>) </span>{
+    <span class="hljs-keyword">let</span> i, j, sum = <span class="hljs-number">0</span>
+
+    <span class="hljs-keyword">for</span> (j = <span class="hljs-number">0</span>; j &lt; cols; j++) {
+        <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; rows; i++) {
+            sum += arry[i][j]
+        }
+    }
+    <span class="hljs-keyword">return</span> sum
+}</code></pre>
+<p>看一下上面的两个空间局部性示例，像示例中从每行开始按顺序访问数组每个元素的方式，称为具有步长为1的引用模式。<br>如果在数组中，每隔k个元素进行访问，就称为步长为k的引用模式。<br>一般而言，随着步长的增加，空间局部性下降。</p>
+<p>这两个例子有什么区别？区别在于第一个示例是按行扫描数组，每扫描完一行再去扫下一行；第二个示例是按列来扫描数组，扫完一行中的一个元素，马上就去扫下一行中的同一列元素。</p>
+<p>数组在内存中是按照行顺序来存放的，结果就是逐行扫描数组的示例得到了步长为 1 引用模式，具有良好的空间局部性；而另一个示例步长为 rows，空间局部性极差。</p>
+<h4>性能测试</h4>
+<p>运行环境：</p>
+<ul>
+<li>cpu: i5-7400</li>
+<li>浏览器: chrome 70.0.3538.110</li>
+</ul>
+<p>对一个长度为9000的二维数组（子数组长度也为9000）进行10次空间局部性测试，时间（毫秒）取平均值，结果如下：<br></p>
+<p>所用示例为上述两个空间局部性示例</p>
+<table>
+<thead><tr>
+<th>步长为 1</th>
+<th>步长为 9000</th>
+</tr></thead>
+<tbody><tr>
+<td>124</td>
+<td>2316</td>
+</tr></tbody>
+</table>
+<p>从以上测试结果来看，步长为 1 的数组执行时间比步长为 9000 的数组快了一个数量级。</p>
+<p>总结：</p>
+<ul>
+<li>重复引用相同变量的程序具有良好的时间局部性</li>
+<li>对于具有步长为 k 的引用模式的程序，步长越小，空间局部性越好；而在内存中以大步长跳来跳去的程序空间局部性会很差</li>
+</ul>
+<p>参考资料：</p>
+<ul><li><a href="https://book.douban.com/subject/26912767/" rel="nofollow noreferrer" target="_blank">深入理解计算机系统</a></li></ul>
+<h3 id="item-0-14">14. if-else 对比 switch</h3>
+<p>当判断条件数量越来越多时，越倾向于使用 switch 而不是 if-else。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">if</span> (color == <span class="hljs-string">'blue'</span>) {
+
+} <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (color == <span class="hljs-string">'yellow'</span>) {
+
+} <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (color == <span class="hljs-string">'white'</span>) {
+
+} <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (color == <span class="hljs-string">'black'</span>) {
+
+} <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (color == <span class="hljs-string">'green'</span>) {
+
+} <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (color == <span class="hljs-string">'orange'</span>) {
+
+} <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (color == <span class="hljs-string">'pink'</span>) {
+
+}
+
+<span class="hljs-keyword">switch</span> (color) {
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'blue'</span>:
+
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'yellow'</span>:
+
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'white'</span>:
+
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'black'</span>:
+
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'green'</span>:
+
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'orange'</span>:
+
+        <span class="hljs-keyword">break</span>
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'pink'</span>:
+
+        <span class="hljs-keyword">break</span>
+}</code></pre>
+<p>像以上这种情况，使用 switch 是最好的。假设 color 的值为 pink，则 if-else 语句要进行 7 次判断，switch 只需要进行一次判断。<br>从可读性来说，switch 语句也更好。从使用时机来说，当条件值大于两个的时候，使用 switch 更好。</p>
+<p>不过，switch 只能用于 case 值为常量的分支结构，而 if-else 更加灵活。</p>
+<h3 id="item-0-15">15. 查找表</h3>
+<p>当条件语句特别多时，使用 switch 和 if-else 不是最佳的选择，这时不妨试一下查找表。查找表可以使用数组和对象来构建。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">switch</span> (index) {
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'0'</span>:
+        <span class="hljs-keyword">return</span> result0
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'1'</span>:
+        <span class="hljs-keyword">return</span> result1
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'2'</span>:
+        <span class="hljs-keyword">return</span> result2
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'3'</span>:
+        <span class="hljs-keyword">return</span> result3
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'4'</span>:
+        <span class="hljs-keyword">return</span> result4
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'5'</span>:
+        <span class="hljs-keyword">return</span> result5
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'6'</span>:
+        <span class="hljs-keyword">return</span> result6
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'7'</span>:
+        <span class="hljs-keyword">return</span> result7
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'8'</span>:
+        <span class="hljs-keyword">return</span> result8
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'9'</span>:
+        <span class="hljs-keyword">return</span> result9
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'10'</span>:
+        <span class="hljs-keyword">return</span> result10
+    <span class="hljs-keyword">case</span> <span class="hljs-string">'11'</span>:
+        <span class="hljs-keyword">return</span> result11
+}</code></pre>
+<p>可以将这个 switch 语句转换为查找表</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">const</span> results = [result0,result1,result2,result3,result4,result5,result6,result7,result8,result9,result10,result11]
+
+<span class="hljs-keyword">return</span> results[index]</code></pre>
+<p>如果条件语句不是数值而是字符串，可以用对象来建立查找表</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">const</span> map = {
+  <span class="hljs-attr">red</span>: result0,
+  <span class="hljs-attr">green</span>: result1,
+}
+
+<span class="hljs-keyword">return</span> map[color]</code></pre>
+<h3 id="item-0-16">16. 避免页面卡顿</h3>
+<p><strong>60fps 与设备刷新率</strong></p>
+<blockquote>目前大多数设备的屏幕刷新率为 60 次/秒。因此，如果在页面中有一个动画或渐变效果，或者用户正在滚动页面，那么浏览器渲染动画或页面的每一帧的速率也需要跟设备屏幕的刷新率保持一致。<br>其中每个帧的预算时间仅比 16 毫秒多一点 (1 秒/ 60 = 16.66 毫秒)。但实际上，浏览器有整理工作要做，因此您的所有工作需要在 10 毫秒内完成。如果无法符合此预算，帧率将下降，并且内容会在屏幕上抖动。 此现象通常称为卡顿，会对用户体验产生负面影响。</blockquote>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099077" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>假如你用 JavaScript 修改了 DOM，并触发样式修改，经历重排重绘最后画到屏幕上。如果这其中任意一项的执行时间过长，都会导致渲染这一帧的时间过长，平均帧率就会下降。假设这一帧花了 50 ms，那么此时的帧率为 1s / 50ms = 20fps，页面看起来就像卡顿了一样。</p>
+<p>对于一些长时间运行的 JavaScript，我们可以使用定时器进行切分，延迟执行。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>, len = arry.length; i &lt; len; i++) {
+    process(arry[i])
+}</code></pre>
+<p>假设上面的循环结构由于 process() 复杂度过高或数组元素太多，甚至两者都有，可以尝试一下切分。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">const</span> todo = arry.concat()
+setTimeout(<span class="hljs-function"><span class="hljs-params">()</span> =&gt;</span> {
+    process(todo.shift())
+    <span class="hljs-keyword">if</span> (todo.length) {
+        setTimeout(<span class="hljs-built_in">arguments</span>.callee, <span class="hljs-number">25</span>)
+    } <span class="hljs-keyword">else</span> {
+        callback(arry)
+    }
+}, <span class="hljs-number">25</span>)</code></pre>
+<p>如果有兴趣了解更多，可以查看一下<a href="https://github.com/woai3c/recommended-books/blob/master/%E5%89%8D%E7%AB%AF/%E9%AB%98%E6%80%A7%E8%83%BDJavaScript.pdf" rel="nofollow noreferrer" target="_blank">高性能JavaScript</a>第 6 章和<a href="https://book.douban.com/subject/30170670/" rel="nofollow noreferrer" target="_blank">高效前端：Web高效编程与优化实践</a>第 3 章。</p>
+<p>参考资料：</p>
+<ul><li><a href="https://developers.google.com/web/fundamentals/performance/rendering" rel="nofollow noreferrer" target="_blank">渲染性能</a></li></ul>
+<h3 id="item-0-17">17. 使用 requestAnimationFrame 来实现视觉变化</h3>
+<p>从第 16 点我们可以知道，大多数设备屏幕刷新率为 60 次/秒，也就是说每一帧的平均时间为 16.66 毫秒。在使用 JavaScript 实现动画效果的时候，最好的情况就是每次代码都是在帧的开头开始执行。而保证 JavaScript 在帧开始时运行的唯一方式是使用 <code>requestAnimationFrame</code>。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-comment">/**
+ * If run as a requestAnimationFrame callback, this
+ * will be run at the start of the frame.
+ */</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateScreen</span>(<span class="hljs-params">time</span>) </span>{
+  <span class="hljs-comment">// Make visual updates here.</span>
+}
+
+requestAnimationFrame(updateScreen);</code></pre>
+<p>如果采取 <code>setTimeout</code> 或 <code>setInterval</code> 来实现动画的话，回调函数将在帧中的某个时点运行，可能刚好在末尾，而这可能经常会使我们丢失帧，导致卡顿。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099080" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>参考资料：</p>
+<ul><li><a href="https://developers.google.com/web/fundamentals/performance/rendering/optimize-javascript-execution?hl=zh-cn" rel="nofollow noreferrer" target="_blank">优化 JavaScript 执行</a></li></ul>
+<h3 id="item-0-18">18. 使用 Web Workers</h3>
+<p>Web Worker 使用其他工作线程从而独立于主线程之外，它可以执行任务而不干扰用户界面。一个 worker 可以将消息发送到创建它的 JavaScript 代码, 通过将消息发送到该代码指定的事件处理程序（反之亦然）。</p>
+<p>Web Worker 适用于那些处理纯数据，或者与浏览器 UI 无关的长时间运行脚本。</p>
+<p>创建一个新的 worker 很简单，指定一个脚本的 URI 来执行 worker 线程（main.js）：</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">var</span> myWorker = <span class="hljs-keyword">new</span> Worker(<span class="hljs-string">'worker.js'</span>);
+<span class="hljs-comment">// 你可以通过postMessage() 方法和onmessage事件向worker发送消息。</span>
+first.onchange = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
+  myWorker.postMessage([first.value,second.value]);
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Message posted to worker'</span>);
+}
+
+second.onchange = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) </span>{
+  myWorker.postMessage([first.value,second.value]);
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Message posted to worker'</span>);
+}</code></pre>
+<p>在 worker 中接收到消息后，我们可以写一个事件处理函数代码作为响应（worker.js）：</p>
+<pre class="javascript hljs"><code class="js">onmessage = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">e</span>) </span>{
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Message received from main script'</span>);
+  <span class="hljs-keyword">var</span> workerResult = <span class="hljs-string">'Result: '</span> + (e.data[<span class="hljs-number">0</span>] * e.data[<span class="hljs-number">1</span>]);
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Posting message back to main script'</span>);
+  postMessage(workerResult);
+}</code></pre>
+<p>onmessage处理函数在接收到消息后马上执行，代码中消息本身作为事件的data属性进行使用。这里我们简单的对这2个数字作乘法处理并再次使用postMessage()方法，将结果回传给主线程。</p>
+<p>回到主线程，我们再次使用onmessage以响应worker回传的消息：</p>
+<pre class="javascript hljs"><code class="js">myWorker.onmessage = <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">e</span>) </span>{
+  result.textContent = e.data;
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Message received from worker'</span>);
+}</code></pre>
+<p>在这里我们获取消息事件的data，并且将它设置为result的textContent，所以用户可以直接看到运算的结果。</p>
+<p>不过在worker内，不能直接操作DOM节点，也不能使用window对象的默认方法和属性。然而你可以使用大量window对象之下的东西，包括WebSockets，IndexedDB以及FireFox OS专用的Data Store API等数据存储机制。</p>
+<p>参考资料：</p>
+<ul><li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Web_Workers_API/Using_web_workers" rel="nofollow noreferrer" target="_blank">Web Workers</a></li></ul>
+<h3 id="item-0-19">19. 使用位操作</h3>
+<p>JavaScript 中的数字都使用 IEEE-754 标准以 64 位格式存储。但是在位操作中，数字被转换为有符号的 32 位格式。即使需要转换，位操作也比其他数学运算和布尔操作快得多。</p>
+<h5>取模</h5>
+<p>由于偶数的最低位为 0，奇数为 1，所以取模运算可以用位操作来代替。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">if</span> (value % <span class="hljs-number">2</span>) {
+    <span class="hljs-comment">// 奇数</span>
+} <span class="hljs-keyword">else</span> {
+    <span class="hljs-comment">// 偶数 </span>
+}
+<span class="hljs-comment">// 位操作</span>
+<span class="hljs-keyword">if</span> (value &amp; <span class="hljs-number">1</span>) {
+    <span class="hljs-comment">// 奇数</span>
+} <span class="hljs-keyword">else</span> {
+    <span class="hljs-comment">// 偶数</span>
+}</code></pre>
+<h5>取反</h5>
+<pre class="javascript hljs"><code class="js">~~<span class="hljs-number">10.12</span> <span class="hljs-comment">// 10</span>
+~~<span class="hljs-number">10</span> <span class="hljs-comment">// 10</span>
+~~<span class="hljs-string">'1.5'</span> <span class="hljs-comment">// 1</span>
+~~<span class="hljs-literal">undefined</span> <span class="hljs-comment">// 0</span>
+~~<span class="hljs-literal">null</span> <span class="hljs-comment">// 0</span></code></pre>
+<h5>位掩码</h5>
+<pre class="javascript hljs"><code class="js"><span class="hljs-keyword">const</span> a = <span class="hljs-number">1</span>
+<span class="hljs-keyword">const</span> b = <span class="hljs-number">2</span>
+<span class="hljs-keyword">const</span> c = <span class="hljs-number">4</span>
+<span class="hljs-keyword">const</span> options = a | b | c</code></pre>
+<p>通过定义这些选项，可以用按位与操作来判断 a/b/c 是否在 options 中。</p>
+<pre class="javascript hljs"><code class="js"><span class="hljs-comment">// 选项 b 是否在选项中</span>
+<span class="hljs-keyword">if</span> (b &amp; options) {
+    ...
+}</code></pre>
+<h3 id="item-0-20">20. 不要覆盖原生方法</h3>
+<p>无论你的 JavaScript 代码如何优化，都比不上原生方法。因为原生方法是用低级语言写的（C/C++），并且被编译成机器码，成为浏览器的一部分。当原生方法可用时，尽量使用它们，特别是数学运算和 DOM 操作。</p>
+<h3 id="item-0-21">21. 降低 CSS 选择器的复杂性</h3>
+<h4>(1). 浏览器读取选择器，遵循的原则是从选择器的右边到左边读取。</h4>
+<p>看个示例</p>
+<pre class="css hljs"><code class="css"><span class="hljs-selector-id">#block</span> <span class="hljs-selector-class">.text</span> <span class="hljs-selector-tag">p</span> {
+    <span class="hljs-attribute">color</span>: red;
+}</code></pre>
+<ol>
+<li>查找所有 P 元素。</li>
+<li>查找结果 1 中的元素是否有类名为 text 的父元素</li>
+<li>查找结果 2 中的元素是否有 id 为 block 的父元素</li>
+</ol>
+<h4>(2). CSS 选择器优先级</h4>
+<pre class="hljs"><code style="word-break: break-word; white-space: initial;">内联 &gt; ID选择器 &gt; 类选择器 &gt; 标签选择器</code></pre>
+<p>根据以上两个信息可以得出结论。</p>
+<ol>
+<li>选择器越短越好。</li>
+<li>尽量使用高优先级的选择器，例如 ID 和类选择器。</li>
+<li>避免使用通配符 *。</li>
+</ol>
+<p>最后要说一句，据我查找的资料所得，CSS 选择器没有优化的必要，因为最慢和慢快的选择器性能差别非常小。</p>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://ecss.io/appendix1.html" rel="nofollow noreferrer" target="_blank">CSS selector performance</a></li>
+<li><a href="https://www.sitepoint.com/optimizing-css-id-selectors-and-other-myths/" rel="nofollow noreferrer" target="_blank">Optimizing CSS: ID Selectors and Other Myths</a></li>
+</ul>
+<h3 id="item-0-22">22. 使用 flexbox 而不是较早的布局模型</h3>
+<p>在早期的 CSS 布局方式中我们能对元素实行绝对定位、相对定位或浮动定位。而现在，我们有了新的布局方式 <a href="https://developer.mozilla.org/zh-CN/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox" rel="nofollow noreferrer" target="_blank">flexbox</a>，它比起早期的布局方式来说有个优势，那就是性能比较好。</p>
+<p>下面的截图显示了在 1300 个框上使用浮动的布局开销：</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099079" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>然后我们用 flexbox 来重现这个例子：</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099078" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>现在，对于相同数量的元素和相同的视觉外观，布局的时间要少得多（本例中为分别 3.5 毫秒和 14 毫秒）。</p>
+<p>不过 flexbox 兼容性还是有点问题，不是所有浏览器都支持它，所以要谨慎使用。</p>
+<p>各浏览器兼容性：</p>
+<ul>
+<li>Chrome 29+</li>
+<li>Firefox 28+</li>
+<li>Internet Explorer 11</li>
+<li>Opera 17+</li>
+<li>Safari 6.1+ (prefixed with -webkit-)</li>
+<li>Android 4.4+</li>
+<li>iOS 7.1+ (prefixed with -webkit-)</li>
+</ul>
+<p>参考资料：</p>
+<ul><li><a href="https://developers.google.com/web/fundamentals/performance/rendering/avoid-large-complex-layouts-and-layout-thrashing?hl=zh-cn" rel="nofollow noreferrer" target="_blank">使用 flexbox 而不是较早的布局模型</a></li></ul>
+<h3 id="item-0-23">23. 使用 transform 和 opacity 属性更改来实现动画</h3>
+<p>在 CSS 中，transforms 和 opacity 这两个属性更改不会触发重排与重绘，它们是可以由合成器（composite）单独处理的属性。</p>
+<p><span class="img-wrap"><img referrerpolicy="no-referrer" src="/img/remote/1460000023099081" alt="在这里插入图片描述" title="在这里插入图片描述"></span></p>
+<p>参考资料：</p>
+<ul><li><a href="https://developers.google.com/web/fundamentals/performance/rendering/stick-to-compositor-only-properties-and-manage-layer-count?hl=zh-cn" rel="nofollow noreferrer" target="_blank">使用 transform 和 opacity 属性更改来实现动画</a></li></ul>
+<h3 id="item-0-24">24. 合理使用规则，避免过度优化</h3>
+<p>性能优化主要分为两类：</p>
+<ol>
+<li>加载时优化</li>
+<li>运行时优化</li>
+</ol>
+<p>上述 23 条建议中，属于加载时优化的是前面 10 条建议，属于运行时优化的是后面 13 条建议。通常来说，没有必要 23 条性能优化规则都用上，根据网站用户群体来做针对性的调整是最好的，节省精力，节省时间。</p>
+<p>在解决问题之前，得先找出问题，否则无从下手。所以在做性能优化之前，最好先调查一下网站的加载性能和运行性能。</p>
+<h5>检查加载性能</h5>
+<p>一个网站加载性能如何主要看白屏时间和首屏时间。</p>
+<ul>
+<li>白屏时间：指从输入网址，到页面开始显示内容的时间。</li>
+<li>首屏时间：指从输入网址，到页面完全渲染的时间。</li>
+</ul>
+<p>将以下脚本放在 <code>&lt;/head&gt;</code> 前面就能获取白屏时间。</p>
+<pre class="xml hljs"><code class="html"><span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><span class="javascript">
+    <span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>() - performance.timing.navigationStart
+</span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span></code></pre>
+<p>首屏时间比较复杂，得考虑有图片和没有图片的情况。</p>
+<p>如果没有图片，则在 <code>window.onload</code> 事件里执行 <code>new Date() - performance.timing.navigationStart</code> 即可获取首屏时间。 </p>
+<p>如果有图片，则要在最后一个在首屏渲染的图片的 <code>onload</code> 事件里执行 <code>new Date() - performance.timing.navigationStart</code> 获取首屏时间，实施起来比较复杂，在这里限于篇幅就不说了。</p>
+<h5>检查运行性能</h5>
+<p>配合 chrome 的开发者工具，我们可以查看网站在运行时的性能。</p>
+<p>打开网站，按 F12 选择 performance，点击左上角的灰色圆点，变成红色就代表开始记录了。这时可以模仿用户使用网站，在使用完毕后，点击 stop，然后你就能看到网站运行期间的性能报告。如果有红色的块，代表有掉帧的情况；如果是绿色，则代表 FPS 很好。performance 的具体使用方法请用搜索引擎搜索一下，毕竟篇幅有限。</p>
+<p>通过检查加载和运行性能，相信你对网站性能已经有了大概了解。所以这时候要做的事情，就是使用上述 23 条建议尽情地去优化你的网站，加油！</p>
+<p>参考资料：</p>
+<ul><li><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/PerformanceTiming/navigationStart" rel="nofollow noreferrer" target="_blank">performance.timing.navigationStart</a></li></ul>
+<h2 id="item-1">其他参考资料</h2>
+<ul>
+<li><a href="https://developers.google.com/web/fundamentals/performance/why-performance-matters?hl=zh-cn" rel="nofollow noreferrer" target="_blank">性能为何至关重要</a></li>
+<li><a href="https://github.com/woai3c/recommended-books/blob/master/%E5%89%8D%E7%AB%AF/%E9%AB%98%E6%80%A7%E8%83%BD%E7%BD%91%E7%AB%99%E5%BB%BA%E8%AE%BE%E6%8C%87%E5%8D%97.pdf" rel="nofollow noreferrer" target="_blank">高性能网站建设指南</a></li>
+<li><a href="https://github.com/woai3c/recommended-books/blob/master/%E5%89%8D%E7%AB%AF/Web%E6%80%A7%E8%83%BD%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97.pdf" rel="nofollow noreferrer" target="_blank">Web性能权威指南</a></li>
+<li><a href="https://github.com/woai3c/recommended-books/blob/master/%E5%89%8D%E7%AB%AF/%E9%AB%98%E6%80%A7%E8%83%BDJavaScript.pdf" rel="nofollow noreferrer" target="_blank">高性能JavaScript</a></li>
+<li><a href="https://book.douban.com/subject/30170670/" rel="nofollow noreferrer" target="_blank">高效前端：Web高效编程与优化实践</a></li>
+</ul>
+<h3 id="item-1-25"><a href="https://zhuanlan.zhihu.com/c_1056848825012023296" rel="nofollow noreferrer" target="_blank">更多文章，欢迎关注</a></h3>
+
+                                                </article>
