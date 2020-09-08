@@ -162,3 +162,5 @@ import {
 // Vue.prototype.$prompt = MessageBox.prompt;
 // Vue.prototype.$notify = Notification;
 // Vue.prototype.$message = Message;
+
+// console.log("import element")

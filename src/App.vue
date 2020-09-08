@@ -3,7 +3,13 @@
     <router-view />
   </div>
 </template>
-
+<script>
+import "./utils/import-element"
+console.log("app")
+export default {
+    
+}
+</script>
 <style lang="scss">
 * {
     margin: 0;
