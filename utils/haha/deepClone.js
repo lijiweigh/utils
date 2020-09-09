@@ -132,6 +132,7 @@ function deepClone3(obj) {
     return root
 }
 
+// 广度优先
 function deepClone4(obj) {
     // if(obj instanceof RegExp) return new RegExp(obj);
     // if(obj instanceof Date) return new Date(obj);
@@ -140,7 +141,7 @@ function deepClone4(obj) {
     }
     let unique = new WeakMap()
     let result = obj instanceof Array ? [] : {}
-    let stack = [
+    let queue = [
         {
             parent: result,
             key: undefined,
@@ -148,8 +149,8 @@ function deepClone4(obj) {
         }
     ]
 
-    while(stack.length) {
-        let node = stack.pop()
+    while(queue.length) {
+        let node = queue.pop()
         let {parent, key, data} = node
         let res = parent
         if(key !== undefined) {
@@ -166,7 +167,7 @@ function deepClone4(obj) {
         let keys = Object.keys(data).concat(Object.getOwnPropertySymbols(data))
         for(let k of keys) {
             if(data[k] instanceof Object) {
-                stack.push({
+                queue.unshift({
                     parent: res,
                     key: k,
                     data: data[k]
@@ -179,6 +180,39 @@ function deepClone4(obj) {
     return result
 }
 
+// 深度优先
+function deepClone5(obj) {
+    if(!(obj instanceof Object)) {
+        return obj
+    }
+    let cache = new WeakMap()
+    let result = obj instanceof Array ? [] : {}
+    cache.set(obj, result)
+    for(let key in obj) {
+        if(obj.hasOwnProperty(key)) {
+            visit(result, cache, key, obj[key])
+        }
+    }
+    return result
+}
+
+function visit(result, cache, key, value) {
+    if(!(value instanceof Object)) {
+        return result[key] = value
+    }
+    if(cache.get(value)) {
+        return result[key] = cache.get(value)
+    }
+    
+    result[key] = value instanceof Array ? [] : {}
+    cache.set(value, result[key])
+    for(let k in value) {
+        if(value.hasOwnProperty(k)) {
+            visit(result[key], cache, k, value[k])
+        }
+    }
+}
+
 let b = {}
 let a = {
     a1: b,
@@ -186,10 +220,11 @@ let a = {
 }
 a.b = a
 console.log(a)
+console.log(a.b)
 console.log(a.a1)
 console.log(a.a2)
-// console.log(a.a1 === a.a2)
-let c = deepClone3(a)
+console.log("----------")
+let c = deepClone5(a)
 console.log(c.a1)
 console.log(c.a2)
 console.log(c.a1 === c.a2)
