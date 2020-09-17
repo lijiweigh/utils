@@ -20,6 +20,9 @@
         <!-- <input class="direction" v-model="inputValuec" /> -->
         <br/>
         <input class="input" v-model="inputValue" />
+
+        <div>{{count[0]}}</div>
+        <button @click="click">click</button>
     </div>
 </template>
 
@@ -52,7 +55,8 @@ export default {
                 address: '上海市普陀区金沙江路 1516 弄'
             }],
             inputValue: "",
-            inputValuec: ""
+            inputValuec: "",
+            count: [2]
         }
     },
     components: {
@@ -63,6 +67,10 @@ export default {
     methods: {
         handleInput(v) {
             // console.log(v)
+        },
+        click() {
+            // this.count[0] = this.count[0] + 1
+            this.$set(this.count, 0, this.count[0] + 1)
         }
     },
     mounted() {
