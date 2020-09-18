@@ -16,6 +16,13 @@
                 <my-table-column prop="address" label="地址"></my-table-column>
             </template>
         </my-table> -->
+        <div class="direction" v-html="inputValuec"></div>
+        <!-- <input class="direction" v-model="inputValuec" /> -->
+        <br/>
+        <input class="input" v-model="inputValue" />
+
+        <div>{{count[0]}}</div>
+        <button @click="click">click</button>
     </div>
 </template>
 
@@ -46,7 +53,10 @@ export default {
                 date: '2016-05-03',
                 name: '王小虎',
                 address: '上海市普陀区金沙江路 1516 弄'
-            }]
+            }],
+            inputValue: "",
+            inputValuec: "",
+            count: [2]
         }
     },
     components: {
@@ -57,6 +67,10 @@ export default {
     methods: {
         handleInput(v) {
             // console.log(v)
+        },
+        click() {
+            // this.count[0] = this.count[0] + 1
+            this.$set(this.count, 0, this.count[0] + 1)
         }
     },
     mounted() {
@@ -70,6 +84,9 @@ export default {
     watch: {
         value(v) {
             console.log(v)
+        },
+        inputValue(v) {
+            this.inputValuec = v + "&#x200E;"
         }
     }
 }
@@ -79,5 +96,19 @@ export default {
 <style lang="scss" scoped>
 .my-ele-test {
     padding-bottom: env(safe-area-inset-bottom);
+}
+
+.direction {
+    direction: rtl;
+    width: 200px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-height: 30px;
+}
+
+.input {
+    width: 200px;
+    height: 30px;
 }
 </style>

@@ -19,7 +19,5 @@ let throttle = (fn, wait = 1000, immediate = true) => {
                 timer = null
             }, wait);
         }
-
-
     }
 }
